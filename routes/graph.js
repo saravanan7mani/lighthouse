@@ -31,63 +31,25 @@ async function graph() {
 
     let edges = channels;
 
-    console.time('DELETE')
-
-    await session.run(
-      'MATCH (n) DETACH DELETE n'
-    );
-
-    txc = session.beginTransaction();
-
-    await txc.run(
-      'DROP INDEX ON :Node(pubKey)'
-    )
-    await txc.run(
-      'DROP INDEX ON :Node(alias)'
-    )
-    await txc.run(
-      'DROP INDEX ON :Channel(channelID)'
-    )
-    await txc.run(
-      'DROP INDEX ON :Channel(capacity)'
-    )
-    await txc.run(
-      'DROP INDEX ON :Channel(chanPoint)'
-    )
-
-    console.timeEnd('DELETE')
-
     console.time('ADD')
 
-    await txc.run(
-      'CREATE INDEX ON :Node(pubKey)'
-    )
-    await txc.run(
-      'CREATE INDEX ON :Node(alias)'
-    )
-    await txc.run(
-      'CREATE INDEX ON :Channel(channelID)'
-    )
-    await txc.run(
-      'CREATE INDEX ON :Channel(capacity)'
-    )
-    await txc.run(
-      'CREATE INDEX ON :Channel(chanPoint)'
-    )
-
-    await txc.commit();
 
     txc = session.beginTransaction();
-    
+    const validNodes = new Set();
     for (let i = 0; i < nodes.length; i++) {
       let node = nodes[i];
+      validNodes.add(node.public_key);
+
       let _alias = node.alias || '';
       let _pubKey = node.public_key;
       let _lastUpdate = node.updated_at || '';
       let _color = node.color || '';
       
       await txc.run(
-        'MERGE (n:Node { alias: $alias, pubKey: $pubKey, lastUpdate: $lastUpdate, color: $color})',
+        `MERGE (n:Node { pubKey: $pubKey})
+        ON CREATE SET n.pubKey = $pubKey
+        ON MATCH SET n.lastUpdate = $lastUpdate
+        ON MATCH SET n.color = $color`,
         {
           alias: _alias,
           pubKey: _pubKey,
@@ -97,15 +59,22 @@ async function graph() {
       );
     }
 
+    const validChannels = new Set();
     for (let i = 0; i < edges.length; i++) {
       let edge = edges[i];
+      validChannels.add(edge);
+
       const _channelID = edge.id;
       const _chanPoint = edge.transaction_id + ':' + edge.transaction_vout;
       const _lastUpdate = edge.updated_at || '';
       const _capacity = edge.capacity;
 
       await txc.run(
-        'CREATE (c:Channel {channelID: $channelID, chanPoint: $chanPoint, lastUpdate: $lastUpdate, capacity: $capacity})',
+        `MERGE (c:Channel { channelID: $channelID})
+        ON CREATE SET c.channelID = $channelID
+        ON CREATE SET c.chanPoint = $chanPoint
+        ON MATCH SET c.lastUpdate = $lastUpdate
+        ON MATCH SET c.capacity = $capacity`,
         {
           channelID: _channelID,
           chanPoint: _chanPoint,
@@ -134,7 +103,16 @@ async function graph() {
       const lastUpdate2 = edge.policies[1].updated_at || '';
 
       await txc.run(
-        'MATCH (n:Node),(c:Channel) WHERE n.pubKey = $pubKey AND c.channelID = $channelID CREATE (n)-[r:OPENED { timeLockDelta: $timeLockDelta, minHtlc: $minHtlc, maxHtlcMsat: $maxHtlcMsat, feeBaseMsat: $feeBaseMsat, feeRateMilliMsat: $feeRateMilliMsat, disabled: $disabled, lastUpdate: $lastUpdate } ]->(c)',
+        `MATCH (n:Node {pubKey: $pubKey})
+        MATCH (c:Channel {channelID: $channelID})
+        MERGE (n)-[r:OPENED]->(c)
+        ON MATCH SET r.timeLockDelta = $timeLockDelta
+        ON MATCH SET r.minHtlc = $minHtlc
+        ON MATCH SET r.maxHtlcMsat = $maxHtlcMsat
+        ON MATCH SET r.feeBaseMsat = $feeBaseMsat
+        ON MATCH SET r.feeRateMilliMsat = $feeRateMilliMsat
+        ON MATCH SET r.disabled = $disabled
+        ON MATCH SET r.lastUpdate = $lastUpdate`,
         {
           pubKey: pubKey1,
           channelID: _channelID,
@@ -149,7 +127,14 @@ async function graph() {
       );
 
       await txc.run(
-        'MATCH (n:Node),(c:Channel) WHERE n.pubKey = $pubKey AND c.channelID = $channelID CREATE (n)-[r:OPENED { timeLockDelta: $timeLockDelta, minHtlc: $minHtlc, maxHtlcMsat: $maxHtlcMsat, feeBaseMsat: $feeBaseMsat, feeRateMilliMsat: $feeRateMilliMsat, disabled: $disabled, lastUpdate: $lastUpdate } ]->(c)',
+        `MERGE (n:Node {pubKey: $pubKey})-[r:OPENED]-(c:Channel {channelID: $channelID})
+        ON MATCH SET r.timeLockDelta = $timeLockDelta
+        ON MATCH SET r.minHtlc = $minHtlc
+        ON MATCH SET r.maxHtlcMsat = $maxHtlcMsat
+        ON MATCH SET r.feeBaseMsat = $feeBaseMsat
+        ON MATCH SET r.feeRateMilliMsat = $feeRateMilliMsat
+        ON MATCH SET r.disabled = $disabled
+        ON MATCH SET r.lastUpdate = $lastUpdate`,
         {
           pubKey: pubKey2,
           channelID: _channelID,
@@ -162,6 +147,40 @@ async function graph() {
           lastUpdate: lastUpdate2
         }
       );
+    }
+
+    const existingChannelIDs = await txc.run(
+      `MATCH (c:Channel) RETURN c.channelID AS channelID`
+    );
+
+    for (let i = 0; i < existingChannelIDs.records.length; i++) {
+      const existingChannelID = existingChannelIDs.records[0].get('channelID');
+
+      if (!validChannels.has(existingChannelID)) {
+        await txc.run(
+          `MATCH (c:Channel {channelID: $channelID}) DETACH DELETE c`,
+          {
+            channelID : existingChannelID
+          }
+        );
+      }
+    }
+
+    const existingPubKeys = await txc.run(
+      `MATCH (n:Node) RETURN n.pubKey AS pubKey`
+    );
+  
+    for (let i = 0; i < existingPubKeys.records.length; i++) {
+      const existingPubKey = existingPubKeys.records[0].get('pubKey');
+
+      if (!validNodes.has(existingPubKey)) {
+        await txc.run(
+          `MATCH (n:Node {pubKey: $pubKey}) DETACH DELETE n`,
+          {
+            pubKey : existingPubKey
+          }
+        );
+      }
     }
 
     await txc.commit()
