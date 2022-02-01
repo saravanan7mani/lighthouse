@@ -9,7 +9,6 @@ async function loadGraphToDB() {
     let dbTx;
     let db;
     try {
-        // await Promise.all([initLND(), initDB()]);
         const lnd = getLND();
         const {channels, nodes} = await getNetworkGraph({lnd});
         console.log((nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges to be loaded');
@@ -27,7 +26,6 @@ async function loadGraphToDB() {
 
         await dbTx.commit()
         await session.close()
-        // await db.close()
         console.log((nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded');
         return (nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded';
     }
@@ -38,9 +36,7 @@ async function loadGraphToDB() {
         if (session) {
             await session.close()
         }
-        // if (db) {
-            await db.close()
-        // }        
+        await db.close()
         console.log('rolled back. ' + e)
         throw e;
     }

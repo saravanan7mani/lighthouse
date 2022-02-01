@@ -3,9 +3,9 @@ const express = require('express');
 const router = express.Router();
 
 router.get('/', async function(req, res, next) {
-  console.time('GRAPHLOAD')
+  console.time('GRAPH_LOAD_TIME')
   let resStr = await loadGraphToDB();
-  console.timeEnd('GRAPHLOAD')
+  console.timeEnd('GRAPH_LOAD_TIME')
   res.send(resStr);
 });
 
