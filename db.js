@@ -12,7 +12,8 @@ function initDB() {
     }
 
     try {
-        _db = neo4j.driver(config.neo4j.uri, neo4j.auth.basic(config.neo4j.username, config.neo4j.password));
+        _db = neo4j.driver(config.neo4j.uri,
+          neo4j.auth.basic(config.neo4j.username, config.neo4j.password));
         resolve();
     }
     catch(e) {

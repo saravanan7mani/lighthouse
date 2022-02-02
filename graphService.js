@@ -1,13 +1,11 @@
-const {initLND} = require('./lnd');
 const {getLND} = require('./lnd');
 const {getNetworkGraph} = require('ln-service');
-const {initDB} = require('./db');
 const {getDB} = require('./db');
 
 async function loadGraphToDB() {
+    let db;
     let session;
     let dbTx;
-    let db;
     try {
         const lnd = getLND();
         const {channels, nodes} = await getNetworkGraph({lnd});
@@ -55,16 +53,16 @@ function prcessGraphNodes(nodes, channels, validNodes, validChannels, txc) {
         let _color = node.color || '';
 
         nodePromises.push(txc.run(
-        `MERGE (n:Node { pubKey: $pubKey})
-        ON CREATE SET n.pubKey = $pubKey
-        ON MATCH SET n.lastUpdate = $lastUpdate
-        ON MATCH SET n.color = $color`,
-        {
-            alias: _alias,
-            pubKey: _pubKey,
-            lastUpdate: _lastUpdate,
-            color: _color
-        }
+            `MERGE (n:Node { pubKey: $pubKey})
+            ON CREATE SET n.pubKey = $pubKey
+            ON MATCH SET n.lastUpdate = $lastUpdate
+            ON MATCH SET n.color = $color`,
+            {
+                alias: _alias,
+                pubKey: _pubKey,
+                lastUpdate: _lastUpdate,
+                color: _color
+            }
         ));
     }
 
@@ -78,17 +76,17 @@ function prcessGraphNodes(nodes, channels, validNodes, validChannels, txc) {
         const _capacity = channel.capacity;
 
         nodePromises.push(txc.run(
-        `MERGE (c:Channel { channelID: $channelID})
-        ON CREATE SET c.channelID = $channelID
-        ON CREATE SET c.chanPoint = $chanPoint
-        ON MATCH SET c.lastUpdate = $lastUpdate
-        ON MATCH SET c.capacity = $capacity`,
-        {
-            channelID: _channelID,
-            chanPoint: _chanPoint,
-            lastUpdate: _lastUpdate,
-            capacity: _capacity
-        }
+            `MERGE (c:Channel { channelID: $channelID})
+            ON CREATE SET c.channelID = $channelID
+            ON CREATE SET c.chanPoint = $chanPoint
+            ON MATCH SET c.lastUpdate = $lastUpdate
+            ON MATCH SET c.capacity = $capacity`,
+            {
+                channelID: _channelID,
+                chanPoint: _chanPoint,
+                lastUpdate: _lastUpdate,
+                capacity: _capacity
+            }
         ));
     }
     return Promise.all(nodePromises);
