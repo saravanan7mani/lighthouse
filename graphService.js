@@ -1,6 +1,7 @@
 const {getLND} = require('./lnd');
 const {getNetworkGraph} = require('ln-service');
 const {getDB} = require('./db');
+const {subscribeToLNDGraph} = require('./graphToDBMover');
 
 async function loadGraphToDB() {
     let db;
@@ -8,8 +9,11 @@ async function loadGraphToDB() {
     let dbTx;
     try {
         const lnd = getLND();
+        const graphToDBMover = subscribeToLNDGraph();
         const {channels, nodes} = await getNetworkGraph({lnd});
+
         console.log((nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges to be loaded');
+        
         db = getDB();
         session = db.session();
         dbTx = session.beginTransaction();
@@ -24,6 +28,12 @@ async function loadGraphToDB() {
 
         await dbTx.commit()
         await session.close()
+
+        // graphToDBMover.on('move', () => {
+        //     _session = db.session();
+        //     _dbTx = session.beginTransaction();
+
+        // })
         console.log((nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded');
         return (nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded';
     }
@@ -45,8 +55,10 @@ function prcessGraphNodes(nodes, channels, validNodes, validChannels, txc) {
 
     for (let i = 0; i < nodes.length; i++) {
         let node = nodes[i];
-        validNodes.add(node.public_key);
-
+        if (validNodes) {
+            validNodes.add(node.public_key);
+        }
+        
         let _alias = node.alias || '';
         let _pubKey = node.public_key;
         let _lastUpdate = node.updated_at || '';
@@ -68,7 +80,9 @@ function prcessGraphNodes(nodes, channels, validNodes, validChannels, txc) {
 
     for (let i = 0; i < channels.length; i++) {
         let channel = channels[i];
-        validChannels.add(channel.id);
+        if (validChannels) {
+            validChannels.add(channel.id);
+        }
 
         const _channelID = channel.id;
         const _chanPoint = channel.transaction_id + ':' + channel.transaction_vout;
@@ -94,9 +108,7 @@ function prcessGraphNodes(nodes, channels, validNodes, validChannels, txc) {
 
 function processGraphEdges(channels, txc) {
     let edgePromises = [];
-    let count = 0;
     for (let i = 0; i < channels.length; i++) {
-        count++;
         let channel = channels[i];
 
         let _channelID = channel.id;  
