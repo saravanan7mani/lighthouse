@@ -4,7 +4,7 @@ function transformChannel(source) {
         capacity: source.capacity,
         transaction_id: source.transaction_id,
         transaction_vout: source.transaction_vout,
-        updated_at: _updated_at,
+        updated_at: source.updated_at,
         policies: [{
             base_fee_mtokens: source.base_fee_mtokens,
             cltv_delta: source.cltv_delta,
@@ -18,14 +18,24 @@ function transformChannel(source) {
     };
 }
 
-function copyChannelPolciy(source, target) {
-    target.base_fee_mtokens = source.base_fee_mtokens;
-    target.cltv_delta = source.cltv_delta;
-    target.fee_rate = source.fee_rate;
-    target.is_disabled = source.is_disabled;
-    target.max_htlc_mtokens = source.max_htlc_mtokens;
-    target.min_htlc_mtokens = source.min_htlc_mtokens;
+function copyChannelPolciy(source, target, index) {
+    const targetPolicy = target.policies[index];
+    
+    if (targetPolicy.updated_at && source.updated_at) {
+        if (targetPolicy.updated_at > source.updated_at) { // If both dates exists, accept the new notification if its latest. Else blindly update. To be revisted.
+            return;
+        }
+    }
+
+    targetPolicy.base_fee_mtokens = source.base_fee_mtokens;
+    targetPolicy.cltv_delta = source.cltv_delta;
+    targetPolicy.fee_rate = source.fee_rate;
+    targetPolicy.is_disabled = source.is_disabled;
+    targetPolicy.max_htlc_mtokens = source.max_htlc_mtokens;
+    targetPolicy.min_htlc_mtokens = source.min_htlc_mtokens;
+    targetPolicy.updated_at = source.updated_at;
     target.updated_at = source.updated_at;
+    return target;
 }
 
 module.exports = {

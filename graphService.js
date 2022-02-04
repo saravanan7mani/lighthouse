@@ -1,10 +1,9 @@
 const {getLND} = require('./lnd');
 const {getNetworkGraph} = require('ln-service');
-const {getDB} = require('./db');
+const db = require('./db').getDB();
 const {subscribeToLNDGraph} = require('./graphToDBMover');
 
 async function loadGraphToDB() {
-    let db;
     let session;
     let dbTx;
     try {
@@ -14,7 +13,6 @@ async function loadGraphToDB() {
 
         console.log((nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges to be loaded');
         
-        db = getDB();
         session = db.session();
         dbTx = session.beginTransaction();
 
@@ -23,17 +21,16 @@ async function loadGraphToDB() {
 
         await prcessGraphNodes(nodes, channels, validNodes, validChannels, dbTx);
         await processGraphEdges(channels, dbTx);
-        await cleanChannelGraphNodes(validChannels, dbTx);
+        await cleanChannelGraphNodes(validChannels, dbTx); // To remove stale channels & nodes from DB that are missed by above update query.
         await cleanNodeGraphNodes(validNodes, dbTx);
 
         await dbTx.commit()
         await session.close()
 
-        // graphToDBMover.on('move', () => {
-        //     _session = db.session();
-        //     _dbTx = session.beginTransaction();
+        graphToDBMover.on('move', (notificationType) => {
+            processLndUpdates(graphToDBMover); // does it need to be await? TBD
+        });
 
-        // })
         console.log((nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded');
         return (nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded';
     }
@@ -44,65 +41,104 @@ async function loadGraphToDB() {
         if (session) {
             await session.close()
         }
-        await db.close()
         console.log('rolled back. ' + e)
         throw e;
+    }
+}
+
+async function processLndUpdates(graphToDBMover) {
+    const _session = db.session();
+    const _dbTx = _session.beginTransaction();
+    const _nodeMap = graphToDBMover.getNodeMap();
+    const _channelMap = graphToDBMover.getChannelMap();
+
+    const _nodes = [..._nodeMap.values()];
+    const _channels = [..._channelMap.values()];
+    try {
+        await prcessGraphNodes(_nodes, _channels, undefined, undefined, _dbTx);
+        await processGraphEdges(_channels, _dbTx);
+        
+        _dbTx.commit();
+
+        _nodeMap.clear();
+        _channelMap.clear();
+    }
+    catch(e) {
+        console.log('error occurred while proceesing LND graph notification. Rolling back.' + e);
+        _dbTx.rollback();
+    }
+    finally {
+        _session.close();
     }
 }
   
 function prcessGraphNodes(nodes, channels, validNodes, validChannels, txc) {
     let nodePromises = [];
 
-    for (let i = 0; i < nodes.length; i++) {
-        let node = nodes[i];
-        if (validNodes) {
-            validNodes.add(node.public_key);
-        }
-        
-        let _alias = node.alias || '';
-        let _pubKey = node.public_key;
-        let _lastUpdate = node.updated_at || '';
-        let _color = node.color || '';
-
-        nodePromises.push(txc.run(
-            `MERGE (n:Node { pubKey: $pubKey})
-            ON CREATE SET n.pubKey = $pubKey
-            ON MATCH SET n.lastUpdate = $lastUpdate
-            ON MATCH SET n.color = $color`,
-            {
-                alias: _alias,
-                pubKey: _pubKey,
-                lastUpdate: _lastUpdate,
-                color: _color
+    if (nodes) {
+        for (let i = 0; i < nodes.length; i++) {
+            let node = nodes[i];
+            if (validNodes) {
+                validNodes.add(node.public_key);
             }
-        ));
-    }
-
-    for (let i = 0; i < channels.length; i++) {
-        let channel = channels[i];
-        if (validChannels) {
-            validChannels.add(channel.id);
+            
+            let _alias = node.alias || '';
+            let _pubKey = node.public_key;
+            let _lastUpdate = node.updated_at || '';
+            let _color = node.color || '';
+    
+            nodePromises.push(txc.run(
+                `MERGE (n:Node { pubKey: $pubKey})
+                ON CREATE SET n.pubKey = $pubKey
+                ON MATCH SET n.lastUpdate = $lastUpdate
+                ON MATCH SET n.color = $color`,
+                {
+                    alias: _alias,
+                    pubKey: _pubKey,
+                    lastUpdate: _lastUpdate,
+                    color: _color
+                }
+            ));
         }
-
-        const _channelID = channel.id;
-        const _chanPoint = channel.transaction_id + ':' + channel.transaction_vout;
-        const _lastUpdate = channel.updated_at || '';
-        const _capacity = channel.capacity;
-
-        nodePromises.push(txc.run(
-            `MERGE (c:Channel { channelID: $channelID})
-            ON CREATE SET c.channelID = $channelID
-            ON CREATE SET c.chanPoint = $chanPoint
-            ON MATCH SET c.lastUpdate = $lastUpdate
-            ON MATCH SET c.capacity = $capacity`,
-            {
-                channelID: _channelID,
-                chanPoint: _chanPoint,
-                lastUpdate: _lastUpdate,
-                capacity: _capacity
-            }
-        ));
     }
+    
+    if (channels) {
+        for (let i = 0; i < channels.length; i++) {
+            let channel = channels[i];
+            if (validChannels) {
+                validChannels.add(channel.id);
+            }
+
+            if (channel.channel_closed) { // Deleting channel node and its relationship. What should happen to a node if its alone now? TBD
+                nodePromises.push(txc.run(
+                    `MATCH (c:Channel {channelID: $channelID}) DETACH DELETE n`,
+                    {
+                        channelID: _channelID,
+                    }
+                ));
+            }
+    
+            const _channelID = channel.id;
+            const _chanPoint = channel.transaction_id + ':' + channel.transaction_vout;
+            const _lastUpdate = channel.updated_at || '';
+            const _capacity = channel.capacity;
+    
+            nodePromises.push(txc.run(
+                `MERGE (c:Channel { channelID: $channelID})
+                ON CREATE SET c.channelID = $channelID
+                ON CREATE SET c.chanPoint = $chanPoint
+                ON MATCH SET c.lastUpdate = $lastUpdate
+                ON MATCH SET c.capacity = $capacity`,
+                {
+                    channelID: _channelID,
+                    chanPoint: _chanPoint,
+                    lastUpdate: _lastUpdate,
+                    capacity: _capacity
+                }
+            ));
+        }
+    }
+    
     return Promise.all(nodePromises);
 }
 
@@ -110,6 +146,10 @@ function processGraphEdges(channels, txc) {
     let edgePromises = [];
     for (let i = 0; i < channels.length; i++) {
         let channel = channels[i];
+
+        if (channel.channel_closed) {
+            continue;
+        }
 
         let _channelID = channel.id;  
         let _pubKey = channel.policies[0].public_key;
@@ -144,6 +184,10 @@ function processGraphEdges(channels, txc) {
                 lastUpdate: _lastUpdate
             }
         ));
+
+        if (channel.policies.length == 1) { // Notifications may contain only one policy.
+            continue;
+        }
 
         _pubKey = channel.policies[1].public_key;
         _timeLockDelta = channel.policies[1].cltv_delta || '';
