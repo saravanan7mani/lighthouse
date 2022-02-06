@@ -30,7 +30,7 @@ function initLND() {
 
 module.exports = {
   initLND,
-  getLND,
+  getLND
 };
 
 function getLND() {

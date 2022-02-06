@@ -28,6 +28,6 @@ module.exports = {
 };
 
 function getDB() {
-    assert.ok(_db, "LND Grpc has not been initialized. Please call init first.");
+    assert.ok(_db, "DB has not been initialized. Please call init first.");
     return _db;
 }

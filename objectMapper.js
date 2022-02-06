@@ -13,20 +13,13 @@ function transformChannel(source) {
             max_htlc_mtokens: source.max_htlc_mtokens,
             min_htlc_mtokens: source.min_htlc_mtokens,
             public_key: source.public_keys[0],
-            updated_at: source.updated_at // TBD - Need to be sure about the receiving order of announcements
+            updated_at: source.updated_at
         }]
     };
 }
 
 function copyChannelPolciy(source, target, index) {
     const targetPolicy = target.policies[index];
-    
-    if (targetPolicy.updated_at && source.updated_at) {
-        if (targetPolicy.updated_at > source.updated_at) { // If both dates exists, accept the new notification if its latest. Else blindly update. To be revisted.
-            return;
-        }
-    }
-
     targetPolicy.base_fee_mtokens = source.base_fee_mtokens;
     targetPolicy.cltv_delta = source.cltv_delta;
     targetPolicy.fee_rate = source.fee_rate;
