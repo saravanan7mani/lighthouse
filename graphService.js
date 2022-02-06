@@ -2,7 +2,6 @@ const {getLND} = require('./lnd');
 const {getNetworkGraph} = require('ln-service');
 const {getDB} = require('./db');
 const {subscribeToLNDGraph} = require('./lndService');
-// const fs = require('fs');
 
 // It requires retry in case of exception before commit. WARNING notification duplicate configs.
 async function loadGraphToDB() {
@@ -11,10 +10,9 @@ async function loadGraphToDB() {
     let dbTx;
     try {
         const lnd = getLND();
-        // const lndGraphToDBHandler = subscribeToLNDGraph();
+        const lndGraphToDBHandler = subscribeToLNDGraph();
         const {channels, nodes} = await getNetworkGraph({lnd});
-        // fs.writeFileSync('/Users/samani2/projects/btc/docs/alexchannels.json', JSON.stringify(nodes));
-        // fs.writeFileSync('/Users/samani2/projects/btc/docs/alexchannels.json', JSON.stringify(channels));
+
         console.log((nodes.length) + ' LN nodes and ' + (channels.length) + ' LN channels to be loaded');
         console.log((nodes.length + channels.length) + ' graph nodes and ' + (channels.length * 2) + ' graph edges to be loaded');
         
@@ -24,18 +22,15 @@ async function loadGraphToDB() {
         const validNodes = new Set();
         const validChannels = new Set();
 
-        await prcessGraphNodes(nodes, channels, validNodes, validChannels, dbTx);
-        await cleanChannelGraphNodes(validChannels, dbTx); // To remove stale channels & nodes from DB that are missed by above update query.
-        await cleanNodeGraphNodes(validNodes, dbTx);
+        await populateGraph(nodes, channels, validNodes, validChannels, dbTx);
+        await removeStaleChannels(validChannels, dbTx); // To remove stale channels & nodes from DB that are missed by above update query.
+        await removeStaleNodes(validNodes, dbTx);
 
         await dbTx.commit()
         await session.close()
 
-        // lndGraphToDBHandler.on('error', () => {
-            
-        // });
-        // lndGraphToDBHandler.on('move', processLndGraphNotifications(this)); // does it need to be await? TBD
-        // lndGraphToDBHandler.moveToDB();
+        lndGraphToDBHandler.on('move', processLndGraphNotifications); // does it need to be await? TBD
+        lndGraphToDBHandler.moveToDB();
 
         console.log((nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded');
         return (nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded';
@@ -54,40 +49,137 @@ async function loadGraphToDB() {
     }
 }
 
-async function processLndGraphNotifications(lndGraphToDBHandler) {
+async function processLndGraphNotifications() {
+    const localNotifications = [...this.notifications];
+    this.notifications = [];
+    for (let i = 0; i < localNotifications.length; i++) {
+        if (await processNotification(localNotifications[i])) {
+            continue;
+        }
+        this.notifications.push(localNotifications[i]);
+    }
+}
+
+async function processNotification(notification) {
     let session;
     let dbTx;
     try {
         session = db.session();
         dbTx = session.beginTransaction();
 
-        const nodeMap = lndGraphToDBHandler.getNodeMap();
-        const channelMap = lndGraphToDBHandler.getChannelMap();
-        const nodes = [...nodeMap.values()];
-        const channels = [...channelMap.values()];
+        if (notification.public_key) {
+            const node = notification;
+            await dbTx.run(
+                `MERGE (n0:Node {public_key: $public_key})
+                CALL apoc.lock.nodes([n0])
+                WITH n0
+                CALL {
+                   WITH n0
+                   WITH n0 WHERE n0.updated_at IS NULL OR n0.updated_at < datetime($updated_at)
+                   MERGE (n:Node {public_key: $public_key})
+                   ON CREATE SET n.public_key = $public_key
+                   SET n.alias = $alias
+                   SET n.color = $color
+                   SET n.sockets = $sockets
+                   SET n.updated_at = datetime($updated_at)
+                   RETURN count(*) AS c
+                }
+                RETURN n0, c`,
+                {
+                    public_key: node.public_key,
+                    alias: node.alias,
+                    color: node.color,
+                    sockets: node.sockets || null,
+                    updated_at: node.updated_at
+                });
+        }
+        else if (notification.channel_closed) {
+            
+        } else {
+            const channel = notification;
+            await dbTx.run(
+                `MERGE (cc:Channel {channel_id: $c_channel_id})
+                WITH cc
+                CALL apoc.lock.nodes([cc])
+                CALL {
+                   WITH cc
+                   WITH cc WHERE cc.closed <> true AND (cc.updated_at IS NULL OR cc.updated_at < datetime($c_updated_at))
+                
+                   MERGE (n0:Node {public_key: $n0_public_key})
+                
+                   MERGE (n1:Node {public_key: $n1_public_key})
+                
+                   MERGE (c:Channel {channel_id: $c_channel_id})
+                   
+                   MERGE (n0)-[r0:OPENED]->(c)<-[r1:OPENED]-(n1)
+                
+                   ON CREATE SET n0.public_key = $n0_public_key
+                   ON CREATE SET n1.public_key = $n1_public_key
+                
+                   ON CREATE SET c.channel_id = $c_channel_id
+                   ON CREATE SET c.channel_point = $c_channel_point
+                
+                   SET c.capacity = $c_capacity
+                   SET c.updated_at = datetime($c_updated_at)
+                            
+                   SET r0.base_fee_mtokens = $r0_base_fee_mtokens
+                   SET r0.cltv_delta = $r0_cltv_delta
+                   SET r0.fee_rate = $r0_fee_rate
+                   SET r0.is_disabled = $r0_is_disabled
+                   SET r0.max_htlc_mtokens = $r0_max_htlc_mtokens
+                   SET r0.min_htlc_mtokens = $r0_min_htlc_mtokens
+                   SET r0.updated_at = datetime($r0_updated_at)
+                
+                   RETURN count(*) AS cnt
+                }
+                RETURN cc, cnt`,
+                {
+                    n0_public_key: channel.public_keys[0],
+                    n1_public_key: channel.public_keys[1],
 
-        await prcessGraphNodes(nodes, channels, undefined, undefined, dbTx);
-        await processGraphEdges(channels, dbTx);
-        
+                    c_channel_id: channel.id,
+                    c_channel_point: channel.transaction_id + ':' + channel.transaction_vout,
+                    c_capacity: channel.capacity,
+                    c_updated_at: channel.updated_at,
+
+                    r0_base_fee_mtokens: channel.base_fee_mtokens,
+                    r0_cltv_delta: channel.cltv_delta,
+                    r0_fee_rate: channel.fee_rate,
+                    r0_is_disabled: channel.is_disabled,
+                    r0_max_htlc_mtokens: channel.max_htlc_mtokens || null,
+                    r0_min_htlc_mtokens: channel.min_htlc_mtokens,
+                    r0_updated_at: channel.updated_at
+                });
+        }
+
         await dbTx.commit();
-
-        nodeMap.clear();
-        channelMap.clear();
+        return true;
     }
     catch(e) {
+        console.log('error while processing lightning graph notification.' + e);
         if (dbTx) {
-            await dbTx.rollback();
+            try {
+                await dbTx.rollback();
+            }
+            catch(re) {
+                console.log('error while rollback.' + re);
+            }
         }
-        console.log('error occurred while proceesing LND graph notification. Rolled back.' + e);
+        return false;
     }
     finally {
         if (session) {
-            await session.close();
+            try {
+                await session.close();
+            }
+            catch(se) {
+                session.log('error while session close.' + se);
+            }
         }
     }
 }
 
-function prcessGraphNodes(nodes, channels, validNodes, validChannels, dbTx) {
+function populateGraph(nodes, channels, validNodes, validChannels, dbTx) {
     let nodePromises = [];
 
     for (let i = 0; i < nodes.length; i++) {
@@ -99,25 +191,33 @@ function prcessGraphNodes(nodes, channels, validNodes, validChannels, dbTx) {
             ON CREATE SET n.public_key = $public_key
             SET n.alias = $alias
             SET n.color = $color
+            SET n.sockets = $sockets
             SET n.updated_at = datetime($updated_at)`,
             {
                 public_key: node.public_key,
                 alias: node.alias,
                 color: node.color,
+                sockets: node.sockets,
                 updated_at: node.updated_at
             }
         ));
     }
-    
+    // MATCH to MERGE is done to ensure if Node is missing in the describe graph.
     for (let i = 0; i < channels.length; i++) {
         let channel = channels[i];
         validChannels.add(channel.id);
 
-        nodePromises.push(dbTx.run(`MATCH (n0:Node {public_key: $n0_public_key})
-            MATCH (n1:Node {public_key: $n1_public_key})
+        nodePromises.push(dbTx.run(
+            `MERGE (n0:Node {public_key: $n0_public_key})
+            MERGE (n1:Node {public_key: $n1_public_key})
             
-            MERGE (n0)-[r0:OPENED]->(c:Channel {channel_id: $c_channel_id})<-[r1:OPENED]-(n1)
+            MERGE (c:Channel {channel_id: $c_channel_id})
+
+            MERGE (n0)-[r0:OPENED]->(c)<-[r1:OPENED]-(n1)
             
+            ON CREATE SET n0.public_key = $n0_public_key
+            ON CREATE SET n1.public_key = $n1_public_key
+
             ON CREATE SET c.channel_id = $c_channel_id
             ON CREATE SET c.channel_point = $c_channel_point
             SET c.capacity = $c_capacity
@@ -169,63 +269,7 @@ function prcessGraphNodes(nodes, channels, validNodes, validChannels, dbTx) {
     return Promise.all(nodePromises);
 }
 
-// function processGraphEdges(channels, dbTx) {
-//     let edgePromises = [];
-//     for (let i = 0; i < channels.length; i++) {
-//         let channel = channels[i];
-       
-//         edgePromises.push(dbTx.run(
-//             `MATCH (n:Node {public_key: $public_key})
-//             MATCH (c:Channel {channel_id: $channel_id})
-//             MERGE (n)-[r:OPENED]->(c)
-//             SET r.base_fee_mtokens = $base_fee_mtokens
-//             SET r.cltv_delta = $cltv_delta
-//             SET r.fee_rate = $fee_rate
-//             SET r.is_disabled = $is_disabled
-//             SET r.max_htlc_mtokens = $max_htlc_mtokens
-//             SET r.min_htlc_mtokens = $min_htlc_mtokens
-//             SET r.updated_at = datetime($updated_at)`,
-//             {
-//                 public_key: channel.policies[0].public_key,
-//                 channel_id: channel.id,
-//                 base_fee_mtokens: channel.policies[0].base_fee_mtokens || null,
-//                 cltv_delta: channel.policies[0].cltv_delta || null,
-//                 fee_rate: channel.policies[0].fee_rate || null,
-//                 is_disabled: channel.policies[0].is_disabled || null,
-//                 max_htlc_mtokens: channel.policies[0].max_htlc_mtokens || null,
-//                 min_htlc_mtokens: channel.policies[0].min_htlc_mtokens || null,
-//                 updated_at: ((channel.policies[0].updated_at) ? channel.policies[0].updated_at : null)
-//             }
-//         ));
-        
-//         edgePromises.push(dbTx.run(
-//             `MATCH (n:Node {public_key: $public_key})
-//             MATCH (c:Channel {channel_id: $channel_id})
-//             MERGE (n)-[r:OPENED]->(c)
-//             SET r.base_fee_mtokens = $base_fee_mtokens
-//             SET r.cltv_delta = $cltv_delta
-//             SET r.fee_rate = $fee_rate
-//             SET r.is_disabled = $is_disabled
-//             SET r.max_htlc_mtokens = $max_htlc_mtokens
-//             SET r.min_htlc_mtokens = $min_htlc_mtokens
-//             SET r.updated_at = datetime($updated_at)`,
-//             {
-//                 public_key: channel.policies[1].public_key,
-//                 channel_id: channel.id,
-//                 base_fee_mtokens: channel.policies[1].base_fee_mtokens || null,
-//                 cltv_delta: channel.policies[1].cltv_delta || null,
-//                 fee_rate: channel.policies[1].fee_rate || null,
-//                 is_disabled: channel.policies[1].is_disabled || null,
-//                 max_htlc_mtokens: channel.policies[1].max_htlc_mtokens || null,
-//                 min_htlc_mtokens: channel.policies[1].min_htlc_mtokens || null,
-//                 updated_at: ((channel.policies[1].updated_at) ? channel.policies[1].updated_at : null)
-//             }
-//         ));
-//     }
-//     return Promise.all(edgePromises);
-// }
-
-async function cleanChannelGraphNodes(validChannels, dbTx) {
+async function removeStaleChannels(validChannels, dbTx) {
     const existing_channel_ids = await dbTx.run(
         `MATCH (c:Channel) RETURN c.channel_id AS channel_id`
     );
@@ -247,7 +291,7 @@ async function cleanChannelGraphNodes(validChannels, dbTx) {
     return Promise.all(channelGraphNodeCleanupPromises);
 }
 
-async function cleanNodeGraphNodes(validNodes, dbTx) {
+async function removeStaleNodes(validNodes, dbTx) {
     const existing_public_keys = await dbTx.run(
         `MATCH (n:Node) RETURN n.public_key AS public_key`
     );
