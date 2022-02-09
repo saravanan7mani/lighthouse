@@ -1,8 +1,6 @@
 const {EventEmitter} = require('events');
 const {getLND} = require('./lnd');
 const {subscribeToGraph} = require('ln-service');
-const {transformChannel} = require('./objectMapper');
-const {copyChannelPolciy} = require('./objectMapper');
 
 class LndGraphToDBHandler extends EventEmitter {
     constructor() {
@@ -47,7 +45,7 @@ function subscribeToLNDGraph() {
     return lndGraphToDBHandler;
 }
 
-module.export = {
+module.exports = {
     LndGraphToDBHandler,
     subscribeToLNDGraph
 } 
