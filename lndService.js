@@ -5,7 +5,7 @@ const {subscribeToGraph} = require('ln-service');
 class LndGraphToDBHandler extends EventEmitter {
     constructor() {
         super();
-        this.notifcations = [];
+        this.notifications = [];
     }
 
     moveToDB(notificationType) {
@@ -20,25 +20,24 @@ Assumptions based on ln-service & LND GRPC Docs and BOLT Spec:
 3. 
 4. There won't be any missing of notification.
 5. But in case of any network failure, there can be missing of notifications. - NEED TO BE FIXED WITH PRIMARY/SECONDARY.
-*/ 
-
+*/
 function subscribeToLNDGraph() {
     const lnd = getLND();
     const lndGraphSubscription = subscribeToGraph({lnd});
     const lndGraphToDBHandler = new LndGraphToDBHandler();
 
     lndGraphSubscription.on('node_updated', (node_updated) => {
-        lndGraphToDBHandler.notifcations.push(node_updated);
+        lndGraphToDBHandler.notifications.push(node_updated);
         lndGraphToDBHandler.moveToDB('node_updated');
     });
 
     lndGraphSubscription.on('channel_updated', (channel_updated) => {
-        lndGraphToDBHandler.notifcations.push(channel_updated);
+        lndGraphToDBHandler.notifications.push(channel_updated);
         lndGraphToDBHandler.moveToDB('channel_updated');
     });
 
     lndGraphSubscription.on('channel_closed', (channel_closed) => {
-        lndGraphToDBHandler.notifcations.push(channel_closed);
+        lndGraphToDBHandler.notifications.push(channel_closed);
         lndGraphToDBHandler.moveToDB('channel_closed');
     });
 
