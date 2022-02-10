@@ -157,7 +157,7 @@ async function deleteStaleNodes(validNodes, dbTx) {
     return Promise.all(nodeGraphNodeCleanupPromises);
 }
 
-async function processLndGraphNotifications() {
+function processLndGraphNotifications() {
     const notifications = [...this.notifications];
     this.notifications = [];
     console.time('NOTIFICATION_LIST_'+notifications.length)
@@ -190,7 +190,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                     updated_at: node.updated_at
                 });
         }
-        else if (notification.channel_closed) {
+        else if (notification.close_height) {
             console.log('\n\nchannel closed update received: ' + JSON.stringify(notification));
             const channel = notification;
             await dbTx.run(
