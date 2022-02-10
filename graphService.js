@@ -179,50 +179,51 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
 
         if (notification.public_key) {
             console.log('\n\nnode update received: ' + JSON.stringify(notification));
-            const node = notification;
             await dbTx.run(
                 DB_QUERIES.UPDATE_NODE_NOTIFICATION,
                 {
-                    public_key: node.public_key,
-                    alias: node.alias,
-                    color: node.color,
-                    sockets: node.sockets || null,
-                    updated_at: node.updated_at
+                    public_key: notification.public_key,
+                    alias: notification.alias,
+                    color: notification.color,
+                    sockets: notification.sockets || null,
+                    updated_at: notification.updated_at
                 });
         }
         else if (notification.close_height) {
             console.log('\n\nchannel closed update received: ' + JSON.stringify(notification));
-            const channel = notification;
+            let channel_point = null;
+            if (typeof notification.transaction_id !== 'undefined' && typeof notification.transaction_vout !== 'undefined') {
+                channel_point = notification.transaction_id + ':' + notification.transaction_vout;
+            }
             await dbTx.run(
                 DB_QUERIES.UPDATE_CHANNEL_CLOSE_NOTIFICATION,
                 {
-                    c_channel_id: channel.id,
-                    c_close_height: channel.close_height,
-                    c_capacity: channel.capacity,
-                    c_channel_point: channel.channel_point,
-                    c_updated_at: channel.updated_at
+                    c_channel_id: notification.id,
+                    c_close_height: notification.close_height,
+                    c_capacity: notification.capacity,
+                    c_channel_point: channel_point,
+                    c_updated_at: notification.updated_at
                 });
         } else {
             console.log('\n\nchannel update received: ' + JSON.stringify(notification));
-            const channel = notification; // MERGE (n0)-[r0:OPENED]->(c)<-[r1:OPENED]-(n1) -----> Since no partial connection is expected by any other query in app, it wont create duplicate link.
             await dbTx.run(
                 DB_QUERIES.UPDATE_CHANNEL_NOTIFICATION,
                 {
-                    n0_public_key: channel.public_keys[0],
-                    n1_public_key: channel.public_keys[1],
+                    n0_public_key: notification.public_keys[0],
+                    n1_public_key: notification.public_keys[1],
 
-                    c_channel_id: channel.id,
-                    c_channel_point: channel.transaction_id + ':' + channel.transaction_vout,
-                    c_capacity: channel.capacity,
-                    c_updated_at: channel.updated_at,
+                    c_channel_id: notification.id,
+                    c_channel_point: notification.transaction_id + ':' + notification.transaction_vout,
+                    c_capacity: notification.capacity,
+                    c_updated_at: notification.updated_at,
 
-                    r0_base_fee_mtokens: channel.base_fee_mtokens,
-                    r0_cltv_delta: channel.cltv_delta,
-                    r0_fee_rate: channel.fee_rate,
-                    r0_is_disabled: channel.is_disabled,
-                    r0_max_htlc_mtokens: channel.max_htlc_mtokens || null,
-                    r0_min_htlc_mtokens: channel.min_htlc_mtokens,
-                    r0_updated_at: channel.updated_at
+                    r0_base_fee_mtokens: notification.base_fee_mtokens,
+                    r0_cltv_delta: notification.cltv_delta,
+                    r0_fee_rate: notification.fee_rate,
+                    r0_is_disabled: notification.is_disabled,
+                    r0_max_htlc_mtokens: notification.max_htlc_mtokens || null,
+                    r0_min_htlc_mtokens: notification.min_htlc_mtokens,
+                    r0_updated_at: notification.updated_at
                 });
         }
 
