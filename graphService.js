@@ -1,11 +1,12 @@
 const {getLND} = require('./lnd');
 const {getNetworkGraph} = require('ln-service');
+const {getNode} = require('ln-service');
 const {getDB} = require('./db');
 const {subscribeToLNDGraph} = require('./lndService');
 const config = require('./config.json');
 const {DB_QUERIES} = require('./constants');
 
-// It requires retry in case of exception before commit. WARNING notification duplicate configs.
+// It requires retry in case of exception before commit. WARNING duplicate subscribeToLNDGraph call.
 async function loadGraphToDB() {
     const db = getDB();
     let session;
@@ -47,11 +48,12 @@ async function loadGraphToDB() {
 
 async function populateGraph(nodes, channels, dbTx) {
     const validNodes = new Set();
-    const validChannels = new Set();
     await populateNodes(nodes, validNodes, dbTx);
-    await populateChannels(channels, validChannels, dbTx);
+    const validChannels = new Set();
+    await populateChannels(channels, validNodes, validChannels, dbTx);
     await deleteStaleChannels(validChannels, dbTx); // To remove stale channels & nodes from DB that are missed by above update query.
     await deleteStaleNodes(validNodes, dbTx);
+    await updateNodeTotalCapacity(validNodes, dbTx);
 }
 
 async function populateNodes(nodes, validNodes, dbTx) {
@@ -74,11 +76,13 @@ async function populateNodes(nodes, validNodes, dbTx) {
     return await Promise.all(txPromises);
 }
 // NOTE: There are nodes which has channels but no node info in describegraph.
-async function populateChannels(channels, validChannels, dbTx) {
+async function populateChannels(channels, validNodes, validChannels, dbTx) {
     const txPromises = [];
     for (let i = 0; i < channels.length; i++) {
         const channel = channels[i];
         validChannels.add(channel.id);
+        validNodes.add(channel.policies[0].public_key);
+        validNodes.add(channel.policies[1].public_key);
 
         txPromises.push(dbTx.run(
             DB_QUERIES.POPULATE_CHANNELS,
@@ -157,19 +161,40 @@ async function deleteStaleNodes(validNodes, dbTx) {
     return Promise.all(nodeGraphNodeCleanupPromises);
 }
 
+async function updateNodeTotalCapacity(validNodes, dbTx) {
+    const lnd = getLND();
+    const nodeInfoPromises = [];
+    for (let key of validNodes) {
+        nodeInfoPromises.push(processNodeTotalCapacity(lnd, key, dbTx));
+    }
+    return Promise.all(nodeInfoPromises);
+}
+
+async function processNodeTotalCapacity(lnd, key, dbTx) {
+    const nodeDetail = await getNode({lnd, public_key: key});
+    return dbTx.run(
+        DB_QUERIES.UPDATE_NODE_CAPACITY_INFO,
+        {
+            public_key : key,
+            capacity : nodeDetail.capacity,
+            channel_count : nodeDetail.channel_count
+        }
+    )
+}
+
 function processLndGraphNotifications() {
     const notifications = [...this.notifications];
     this.notifications = [];
-    console.time('NOTIFICATION_LIST_'+notifications.length)
+    // console.time('NOTIFICATION_LIST_'+notifications.length)
     for (let i = 0; i < notifications.length; i++) {
         processLndGraphNotification(notifications[i], this);
     }
-    console.timeEnd('NOTIFICATION_LIST_'+notifications.length)
+    // console.timeEnd('NOTIFICATION_LIST_'+notifications.length)
 }
 
 
 async function processLndGraphNotification(notification, lndGraphToDBHandler) {
-    console.time('NOTIFICATION'+notification.updated_at)
+    // console.time('NOTIFICATION'+notification.updated_at)
     let session;
     let dbTx;
     try {
@@ -178,7 +203,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
         dbTx = session.beginTransaction();
 
         if (notification.public_key) {
-            console.log('\n\nnode update received: ' + JSON.stringify(notification));
+            // console.log('\n\nnode update received: ' + JSON.stringify(notification));
             await dbTx.run(
                 DB_QUERIES.UPDATE_NODE_NOTIFICATION,
                 {
@@ -205,7 +230,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                     c_updated_at: notification.updated_at
                 });
         } else {
-            console.log('\n\nchannel update received: ' + JSON.stringify(notification));
+            // console.log('\n\nchannel update received: ' + JSON.stringify(notification));
             await dbTx.run(
                 DB_QUERIES.UPDATE_CHANNEL_NOTIFICATION,
                 {
@@ -258,7 +283,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                 session.log('\n\nerror while session close.' + se);
             }
         }
-        console.timeEnd('NOTIFICATION'+notification.updated_at)
+        // console.timeEnd('NOTIFICATION'+notification.updated_at)
     }
 }
 

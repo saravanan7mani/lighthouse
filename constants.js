@@ -39,6 +39,10 @@ const DB_QUERIES = {
 
     DELETE_NODES_BY_NODE_PUBLIC_KEYS: `MATCH (n:Node {public_key: $public_key}) DETACH DELETE n`,
 
+    UPDATE_NODE_CAPACITY_INFO: `Match (n:Node {public_key: $public_key})
+        SET n.capacity = $capacity
+        SET n.channel_count = $channel_count`,
+
     UPDATE_NODE_NOTIFICATION: `MERGE (n0:Node {public_key: $public_key})
         WITH n0
         CALL apoc.lock.nodes([n0])
@@ -92,7 +96,6 @@ const DB_QUERIES = {
         MATCH (n0)-[r0:OPENED]->(c)<-[r1:OPENED]-(n1)
         DELETE r0, r1`
 };
-
 
 module.exports = {
     DB_QUERIES
