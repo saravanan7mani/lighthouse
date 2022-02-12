@@ -54,6 +54,8 @@ const DB_QUERIES = {
             SET n.alias = $alias
             SET n.color = $color
             SET n.sockets = $sockets
+            SET n.capacity = $capacity
+            SET n.channel_count = $channel_count
             SET n.updated_at = datetime($updated_at)
             RETURN count(*) AS cnt
         }
@@ -72,6 +74,10 @@ const DB_QUERIES = {
             ON CREATE SET n1.public_key = $n1_public_key
             ON CREATE SET c.channel_id = $c_channel_id
             ON CREATE SET c.channel_point = $c_channel_point
+            SET n0.capacity = $n0_capacity
+            SET n0.channel_count = $n0_channel_count
+            SET n1.capacity = $n1_capacity
+            SET n1.channel_count = $n1_channel_count
             SET c.capacity = $c_capacity
             SET c.updated_at = datetime($c_updated_at)
             SET r0.base_fee_mtokens = $r0_base_fee_mtokens
@@ -94,7 +100,8 @@ const DB_QUERIES = {
         SET (CASE WHEN c.channel_point IS NULL THEN c END).channel_point = $c_channel_point
         WITH c
         MATCH (n0)-[r0:OPENED]->(c)<-[r1:OPENED]-(n1)
-        DELETE r0, r1`
+        DELETE r0, r1
+        RETURN n0`
 };
 
 module.exports = {

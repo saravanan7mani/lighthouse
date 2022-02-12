@@ -198,12 +198,15 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
     let session;
     let dbTx;
     try {
+        const lnd = getLND();
         const db = getDB();
         session = db.session();
         dbTx = session.beginTransaction();
 
         if (notification.public_key) {
-            // console.log('\n\nnode update received: ' + JSON.stringify(notification));
+            
+            const nodeDetail = await getNode({lnd, public_key: notification.public_key});
+            // console.log('\n\nnode update received: ' + JSON.stringify(notification) + '\nNODE CAP & CH COUNT: ' + nodeDetail.capacity + ' & ' + nodeDetail.channel_count);
             await dbTx.run(
                 DB_QUERIES.UPDATE_NODE_NOTIFICATION,
                 {
@@ -211,16 +214,17 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                     alias: notification.alias,
                     color: notification.color,
                     sockets: notification.sockets || null,
+                    capacity : nodeDetail.capacity,
+                    channel_count : nodeDetail.channel_count,
                     updated_at: notification.updated_at
                 });
         }
         else if (notification.close_height) {
-            console.log('\n\nchannel closed update received: ' + JSON.stringify(notification));
             let channel_point = null;
             if (typeof notification.transaction_id !== 'undefined' && typeof notification.transaction_vout !== 'undefined') {
                 channel_point = notification.transaction_id + ':' + notification.transaction_vout;
             }
-            await dbTx.run(
+            const public_keys = await dbTx.run(
                 DB_QUERIES.UPDATE_CHANNEL_CLOSE_NOTIFICATION,
                 {
                     c_channel_id: notification.id,
@@ -229,13 +233,28 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                     c_channel_point: channel_point,
                     c_updated_at: notification.updated_at
                 });
+            console.log('\n\nchannel closed update received: ' + JSON.stringify(notification) + '\nNODE CAP & CH COUNT: ' + public_keys);
+            if (public_keys && public_keys.records 
+                && typeof public_keys.records.length !== 'undefined' && public_keys.records.length == 2) {
+                    console.log('\nCLOSE NODE CAP & CH COUNT');
+                await Promise.all([processNodeTotalCapacity(lnd, public_keys.records[0].get('public_keys'), dbTx),
+                        processNodeTotalCapacity(lnd, public_keys.records[1].get('public_keys'), dbTx)]);
+            }
+
         } else {
             // console.log('\n\nchannel update received: ' + JSON.stringify(notification));
+            const nodeDetails = await Promise.all([getNode({lnd, public_key: notification.public_keys[0]}), 
+                        getNode({lnd, public_key: notification.public_keys[1]})]);
+            // console.log('\n\nchannel update received: ' + JSON.stringify(notification) + '\nNODE0 CAP & CH COUNT: ' + nodeDetails[0].capacity + ' & ' + nodeDetails[0].channel_count  + '\nNODE1 CAP & CH COUNT: ' + nodeDetails[1].capacity + ' & ' + nodeDetails[1].channel_count);
             await dbTx.run(
                 DB_QUERIES.UPDATE_CHANNEL_NOTIFICATION,
                 {
                     n0_public_key: notification.public_keys[0],
                     n1_public_key: notification.public_keys[1],
+                    n0_capacity : nodeDetails[0].capacity,
+                    n0_channel_count : nodeDetails[0].channel_count,
+                    n1_capacity : nodeDetails[1].capacity,
+                    n1_channel_count : nodeDetails[1].channel_count,
 
                     c_channel_id: notification.id,
                     c_channel_point: notification.transaction_id + ':' + notification.transaction_vout,
