@@ -101,7 +101,42 @@ const DB_QUERIES = {
         WITH c
         MATCH (n0)-[r0:OPENED]->(c)<-[r1:OPENED]-(n1)
         DELETE r0, r1
-        RETURN n0`
+        RETURN n0.public_key as public_keys`,
+
+    GET_NODES_COUNT_BY_MIN_MAX_CAPACITY: `MATCH (n:Node) WHERE n.capacity >= $min_capacity AND n.capacity <= $max_capacity 
+        RETURN count(*) AS total`,
+
+    GET_NODES_COUNT_BY_MIN_CAPACITY: `MATCH (n:Node) WHERE n.capacity >= $min_capacity RETURN count(*) AS total`,
+
+    GET_NODES_COUNT_BY_MAX_CAPACITY: `MATCH (n:Node) WHERE n.capacity <= $max_capacity RETURN count(*) AS total`,
+
+    GET_NODES_COUNT_BY_CAPACITY: `MATCH (n:Node) WHERE n.capacity = $capacity RETURN count(*) AS total`,
+
+    GET_NODES_COUNT: `MATCH (n:Node) RETURN count(*) AS total`,
+
+    GET_NODES_BY_MIN_MAX_CAPACITY: `MATCH (n:Node) WHERE n.capacity >= $min_capacity AND n.capacity <= $max_capacity 
+        RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, n.public_key AS public_key, 
+        n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at 
+        ORDER BY capacity SKIP $skip LIMIT $limit`,
+
+    GET_NODES_BY_MIN_CAPACITY: `MATCH (n:Node) WHERE n.capacity >= $min_capacity 
+        RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, n.public_key AS public_key, 
+        n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at
+        ORDER BY n.capacity SKIP $skip LIMIT $limit`,
+
+    GET_NODES_BY_MAX_CAPACITY: `MATCH (n:Node) WHERE n.capacity <= $max_capacity 
+        RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, n.public_key AS public_key, 
+        n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at
+        ORDER BY n.capacity SKIP $skip LIMIT $limit`,
+
+    GET_NODES_BY_CAPACITY: `MATCH (n:Node) WHERE n.capacity = $capacity 
+        RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, n.public_key AS public_key, 
+        n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at
+        ORDER BY n.capacity SKIP $skip LIMIT $limit`,
+
+    GET_NODES: `MATCH (n:Node) RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, 
+        n.public_key AS public_key, n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at
+        ORDER BY n.capacity SKIP $skip LIMIT $limit`
 };
 
 module.exports = {
