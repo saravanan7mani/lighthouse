@@ -12,17 +12,17 @@ function initLND() {
     }
 
     try {
-      const uri = process.env.NEO4J_URI || config.lnd.uri || '127.0.0.1:10009';
-      const username = process.env.NEO4J_USERNAME || config.lnd.cert || null;
-      const password = process.env.NEO4J_PASSWORD || config.lnd.macaroon || null;
-      if (!username || !password) {
+      const uri = process.env.LND_URI || config.lnd.uri || '127.0.0.1:10009';
+      const cert = process.env.LND_CERT || config.lnd.cert || null;
+      const macaroon = process.env.LND_MACAROON || config.lnd.macaroon || null;
+      if (!cert || !macaroon) {
         reject('Missing lnd grpc credential.');
       } 
       else {
         const {lnd} = lnService.authenticatedLndGrpc({
-          cert: config.lnd.cert,
-          macaroon: config.lnd.macaroon,
-          socket: config.lnd.uri
+          cert: cert,
+          macaroon: macaroon,
+          socket: uri
         });
   
         _lnd = lnd;
