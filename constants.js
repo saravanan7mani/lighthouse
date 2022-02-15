@@ -117,27 +117,27 @@ const DB_QUERIES = {
     GET_NODES_BY_MIN_MAX_CAPACITY: `MATCH (n:Node) WHERE n.capacity >= $min_capacity AND n.capacity <= $max_capacity 
         RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, n.public_key AS public_key, 
         n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at 
-        ORDER BY capacity SKIP $skip LIMIT $limit`,
+        ORDER BY n.capacity, id(n) SKIP $skip LIMIT $limit`,
 
     GET_NODES_BY_MIN_CAPACITY: `MATCH (n:Node) WHERE n.capacity >= $min_capacity 
         RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, n.public_key AS public_key, 
         n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at
-        ORDER BY n.capacity SKIP $skip LIMIT $limit`,
+        ORDER BY n.capacity, id(n) SKIP $skip LIMIT $limit`,
 
     GET_NODES_BY_MAX_CAPACITY: `MATCH (n:Node) WHERE n.capacity <= $max_capacity 
         RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, n.public_key AS public_key, 
         n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at
-        ORDER BY n.capacity SKIP $skip LIMIT $limit`,
+        ORDER BY n.capacity, id(n) SKIP $skip LIMIT $limit`,
 
     GET_NODES_BY_CAPACITY: `MATCH (n:Node) WHERE n.capacity = $capacity 
         RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, n.public_key AS public_key, 
         n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at
-        ORDER BY n.capacity SKIP $skip LIMIT $limit`,
+        ORDER BY n.capacity, id(n) SKIP $skip LIMIT $limit`,
 
     GET_NODES: `MATCH (n:Node) RETURN n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, 
         n.public_key AS public_key, n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at
-        ORDER BY n.capacity SKIP $skip LIMIT $limit`
-};
+        ORDER BY n.capacity, id(n) SKIP $skip LIMIT $limit`
+}
 
 module.exports = {
     DB_QUERIES

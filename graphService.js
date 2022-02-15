@@ -2,130 +2,155 @@ const {getDB} = require('./db');
 const neo4j = require('neo4j-driver');
 const {DB_QUERIES} = require('./constants');
 
-async function getNodesByTotalCapacity(min_capacity, max_capacity, skip, limit) {
-    console.log('getNodesByTotalCapacity - min_capacity: ' + min_capacity + ', max_capacity: ' + max_capacity + ', skip: ' + skip + ', limit: ' + limit);
+async function getNodesByTotalCapacity(input) {
+    console.log('getNodesByTotalCapacity - min_capacity: ' + input.min_capacity + ', max_capacity: ' + input.max_capacity + ', skip: ' + input.skip + ', limit: ' + input.limit);
+    const queryRequest = parseGetNodesByTotalCapacityInput(input);
+
+    console.log('countQuery: ' + queryRequest.countQuery);
+    console.log('countQueryArgs: ' + JSON.stringify(queryRequest.countQueryArgs));
+    console.log('nodesQuery: ' + queryRequest.nodesQuery);
+    console.log('nodesQueryArgs: ' + JSON.stringify(queryRequest.nodesQueryArgs));
+
     const driver = getDB();
     const session = driver.session();
-    
-    let getNodesCountQuery;
-    let getNodesQuery;
-
-    let getNodesCountQueryArgs = {};
-    let getNodesQueryArgs = {};
-
-    let isTotalRequired = false;
-
-    if (typeof skip === 'number' && skip !== NaN && skip !== Infinity && skip > 0) {
-        getNodesQueryArgs.skip = neo4j.int(skip);
-    }
-    else {
-        getNodesQueryArgs.skip = neo4j.int(0);
-        isTotalRequired = true;
-    }
-
-    if (typeof limit === 'number' && limit !== NaN && limit !== Infinity && limit > 0) {
-        getNodesQueryArgs.limit = neo4j.int(limit); // pagination possible
-    }
-    else {
-        getNodesQueryArgs.limit = neo4j.int(10); // no pagination
-    }
-
-    if (typeof min_capacity == 'number' && min_capacity !== NaN && min_capacity !== Infinity && min_capacity > 0) {
-        getNodesQueryArgs.min_capacity = neo4j.int(min_capacity);
-    }
-
-    if (typeof max_capacity == 'number' && max_capacity !== NaN && max_capacity !== Infinity && max_capacity > 0) {
-        getNodesQueryArgs.max_capacity = neo4j.int(max_capacity);
-    }
-
-    if (getNodesQueryArgs.min_capacity && getNodesQueryArgs.max_capacity 
-        && getNodesQueryArgs.min_capacity === getNodesQueryArgs.max_capacity) {
-            getNodesQueryArgs.capacity = neo4j.int(min_capacity);
-            delete getNodesQueryArgs.min_capacity;
-            delete getNodesQueryArgs.max_capacity;
-    }
-
-    if (isTotalRequired) {
-        if (getNodesQueryArgs.min_capacity) {
-            getNodesCountQueryArgs.min_capacity = neo4j.int(min_capacity);
-        }
-        if (getNodesQueryArgs.max_capacity) {
-            getNodesCountQueryArgs.max_capacity = neo4j.int(max_capacity);
-        }
-        if (getNodesQueryArgs.capacity) {
-            getNodesCountQueryArgs.capacity = neo4j.int(min_capacity);
-        }
-    }
-
-    if (getNodesQueryArgs.min_capacity && getNodesQueryArgs.max_capacity) {
-        getNodesQuery = DB_QUERIES.GET_NODES_BY_MIN_MAX_CAPACITY;
-        if (isTotalRequired) {
-            getNodesCountQuery = DB_QUERIES.GET_NODES_COUNT_BY_MIN_MAX_CAPACITY;
-        }
-    }
-    else if (getNodesQueryArgs.min_capacity) {
-        getNodesQuery = DB_QUERIES.GET_NODES_BY_MIN_CAPACITY;
-        if (isTotalRequired) {
-            getNodesCountQuery = DB_QUERIES.GET_NODES_COUNT_BY_MIN_CAPACITY;
-        }
-    }
-    else if (getNodesQueryArgs.max_capacity) {
-        getNodesQuery = DB_QUERIES.GET_NODES_BY_MAX_CAPACITY;
-        if (isTotalRequired) {
-            getNodesCountQuery = DB_QUERIES.GET_NODES_COUNT_BY_MAX_CAPACITY;
-        }
-    }
-    else if (getNodesQueryArgs.capacity) {
-        getNodesQuery = DB_QUERIES.GET_NODES_BY_CAPACITY;
-        if (isTotalRequired) {
-            getNodesCountQuery = DB_QUERIES.GET_NODES_COUNT_BY_CAPACITY;
-        }
-    }
-    else {
-        getNodesQuery = DB_QUERIES.GET_NODES;
-        if (isTotalRequired) {
-            getNodesCountQuery = DB_QUERIES.GET_NODES_COUNT;
-        }
-    }
-
-    console.log('getNodesCountQuery: ' + getNodesCountQuery);
-    console.log('getNodesCountQueryArgs: ' + JSON.stringify(getNodesCountQueryArgs));
-    console.log('getNodesQuery: ' + getNodesQuery);
-    console.log('getNodesQueryArgs: ' + JSON.stringify(getNodesQueryArgs));
 
     try {
         const results = await session.readTransaction(async tx => {
             const txPromises = [];
-            if (isTotalRequired) {
-                txPromises.push(tx.run(getNodesCountQuery, getNodesCountQueryArgs));
+            if (queryRequest.isTotalRequired) {
+                txPromises.push(tx.run(queryRequest.countQuery, queryRequest.countQueryArgs));
             }
-            txPromises.push(tx.run(getNodesQuery, getNodesQueryArgs));
+            txPromises.push(tx.run(queryRequest.nodesQuery, queryRequest.nodesQueryArgs));
             return Promise.all(txPromises);    
         });
 
-        const response = {};
-        if (isTotalRequired) {
-            response.total = results[0].records[0].get('total').low;
-            response.nodes = results[1];
+        const queryResponse = {};
+        if (queryRequest.isTotalRequired) {
+            queryResponse.total = results[0].records[0].get('total').low;
+            queryResponse.nodes = results[1];
         }
         else {
-            response.nodes = results[0];
+            queryResponse.nodes = results[0];
         }
-        response.nodes = response.nodes.records.map(record => {
-            return {
-                alias: record.get('alias'),
-                capacity: record.get('capacity'),
-                channel_count: record.get('channel_count'),
-                public_key: record.get('public_key'),
-                sockets: record.get('sockets'),
-                updated_at: record.get('updated_at')
-            };
+        queryResponse.nodes = queryResponse.nodes.records.map(record => {
+            const node = {};
+            if (record.get('alias') !== null) {
+                node.alias = record.get('alias');
+            }
+            if (record.get('capacity') !== null) {
+                node.capacity = record.get('capacity');
+            }
+            if (record.get('channel_count') !== null) {
+                node.channel_count = record.get('channel_count');
+            }
+            if (record.get('public_key') !== null) {
+                node.public_key = record.get('public_key');
+            }
+            if (record.get('sockets') !== null) {
+                node.sockets = record.get('sockets');
+            }
+            if (record.get('updated_at') !== null) {
+                node.updated_at = record.get('updated_at');
+            }
+            return node;
         });
         // console.log('getNodesByTotalCapacity-response: ' + JSON.stringify(response));
-        return response;
+        return queryResponse;
     }
     finally {
         await session.close();
+    }
+}
+
+function parseGetNodesByTotalCapacityInput(input) {
+    let countQuery;
+    let nodesQuery;
+
+    let countQueryArgs = {};
+    let nodesQueryArgs = {};
+
+    let isTotalRequired = false;
+
+    if (Number.isSafeInteger(input.skip) && input.skip > 0) {
+        nodesQueryArgs.skip = neo4j.int(input.skip);
+    }
+    else {
+        nodesQueryArgs.skip = neo4j.int(0);
+        isTotalRequired = true;
+    }
+
+    if (Number.isSafeInteger(input.limit) && input.limit > 0) {
+        nodesQueryArgs.limit = neo4j.int(input.limit);
+    }
+    else {
+        nodesQueryArgs.limit = neo4j.int(100);
+    }
+
+    const query = {countQuery, countQueryArgs, nodesQuery, nodesQueryArgs, isTotalRequired};
+
+    parseTotalCapacityInput(input, query);
+    
+    return query;
+}
+
+function parseTotalCapacityInput(input, query) {
+
+    if (Number.isSafeInteger(input.min_capacity) && input.min_capacity > 0) {
+        query.nodesQueryArgs.min_capacity = neo4j.int(input.min_capacity);
+    }
+
+    if (Number.isSafeInteger(input.max_capacity) && input.max_capacity > 0) {
+        query.nodesQueryArgs.max_capacity = neo4j.int(input.max_capacity);
+    }
+
+    if (query.nodesQueryArgs.min_capacity && query.nodesQueryArgs.max_capacity 
+        && query.nodesQueryArgs.min_capacity === query.nodesQueryArgs.max_capacity) {
+            query.nodesQueryArgs.capacity = query.nodesQueryArgs.min_capacity;
+            delete query.nodesQueryArgs.min_capacity;
+            delete query.nodesQueryArgs.max_capacity;
+    }
+
+    if (query.isTotalRequired) {
+        if (query.nodesQueryArgs.min_capacity) {
+            query.countQueryArgs.min_capacity = query.nodesQueryArgs.min_capacity;
+        }
+        if (query.nodesQueryArgs.max_capacity) {
+            query.countQueryArgs.max_capacity = query.nodesQueryArgs.max_capacity;
+        }
+        if (query.nodesQueryArgs.capacity) {
+            query.countQueryArgs.capacity = query.nodesQueryArgs.capacity;
+        }
+    }
+
+    if (query.nodesQueryArgs.min_capacity && query.nodesQueryArgs.max_capacity) {
+        query.nodesQuery = DB_QUERIES.GET_NODES_BY_MIN_MAX_CAPACITY;
+        if (query.isTotalRequired) {
+            query.countQuery = DB_QUERIES.GET_NODES_COUNT_BY_MIN_MAX_CAPACITY;
+        }
+    }
+    else if (query.nodesQueryArgs.min_capacity) {
+        query.nodesQuery = DB_QUERIES.GET_NODES_BY_MIN_CAPACITY;
+        if (query.isTotalRequired) {
+            query.countQuery = DB_QUERIES.GET_NODES_COUNT_BY_MIN_CAPACITY;
+        }
+    }
+    else if (query.nodesQueryArgs.max_capacity) {
+        query.nodesQuery = DB_QUERIES.GET_NODES_BY_MAX_CAPACITY;
+        if (query.isTotalRequired) {
+            query.countQuery = DB_QUERIES.GET_NODES_COUNT_BY_MAX_CAPACITY;
+        }
+    }
+    else if (query.nodesQueryArgs.capacity) {
+        query.nodesQuery = DB_QUERIES.GET_NODES_BY_CAPACITY;
+        if (query.isTotalRequired) {
+            query.countQuery = DB_QUERIES.GET_NODES_COUNT_BY_CAPACITY;
+        }
+    }
+    else {
+        query.nodesQuery = DB_QUERIES.GET_NODES;
+        if (query.isTotalRequired) {
+            query.countQuery = DB_QUERIES.GET_NODES_COUNT;
+        }
     }
 }
 
