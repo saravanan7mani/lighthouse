@@ -136,7 +136,16 @@ const DB_QUERIES = {
 
     GET_NODES: `MATCH (n:Node)-[OPENED]->(Channel) RETURN DISTINCT(id(n)) AS id, n.alias AS alias, n.capacity AS capacity, n.channel_count AS channel_count, 
         n.public_key AS public_key, n.sockets AS sockets, apoc.date.toISO8601(n.updated_at.epochMillis, "ms") AS updated_at
-        ORDER BY n.capacity, id(n) SKIP $skip LIMIT $limit`
+        ORDER BY n.capacity, id(n) SKIP $skip LIMIT $limit`,
+
+    GET_PEERS_OF_NODES: `UNWIND $public_keys AS n_public_key
+        MATCH (n0:Node {public_key: n_public_key})-[r0:OPENED]->(c:Channel)<-[r1:OPENED]-(n1:Node) 
+        RETURN n0, r0, c, r1, n1, apoc.date.toISO8601(n0.updated_at.epochMillis, "ms") AS n0_updated_at, 
+        apoc.date.toISO8601(n1.updated_at.epochMillis, "ms") AS n1_updated_at,
+        apoc.date.toISO8601(c.updated_at.epochMillis, "ms") AS c_updated_at, 
+        apoc.date.toISO8601(r0.updated_at.epochMillis, "ms") AS r0_updated_at, 
+        apoc.date.toISO8601(r1.updated_at.epochMillis, "ms") AS r1_updated_at  
+        ORDER BY n0.capacity, n1.capacity`
 }
 
 module.exports = {

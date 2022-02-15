@@ -1,5 +1,6 @@
 const {loadGraphToDB} = require('../startup');
 const {getNodesByTotalCapacity} = require('../graphService');
+const {getPeersByNodes} = require('../graphService');
 const express = require('express');
 const router = express.Router();
 
@@ -34,6 +35,21 @@ router.get('/nodes', async function(req, res) {
   }
 
   console.timeEnd('NODES_TIME')
+});
+
+router.post('/nodes', async function(req, res) {
+  console.time('PEERS_TIME')
+
+  const public_keys = req.body.public_keys;
+  
+  if (public_keys && public_keys.length) {
+    res.json(await getPeersByNodes(public_keys));
+  }
+  else {
+    res.status(400).json('Empty input public_keys');
+  }
+
+  console.timeEnd('PEERS_TIME')
 });
 
 function verifyGetNodesByTotalCapacityInput(input) {
