@@ -1,13 +1,14 @@
 const config = require('./config.json');
 const lnService = require('ln-service');
 const assert = require("assert");
+const logger = require('log4js').getLogger("lnd");
 
 let _lnd;
 
 function initLND() {
   return new Promise((resolve, reject) => {
     if (_lnd) {
-      console.warn("Trying to init lnd grpc again!");
+      logger.warn("Trying to init lnd grpc again!");
       return resolve();
     }
 

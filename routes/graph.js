@@ -4,16 +4,7 @@ const {getPeersByNodes} = require('../graphService');
 const express = require('express');
 const router = express.Router();
 
-router.get('/', async function(req, res) {
-  console.time('GRAPH_LOAD_TIME')
-  await loadGraphToDB();
-  console.timeEnd('GRAPH_LOAD_TIME')
-  res.send();
-});
-
 router.get('/nodes', async function(req, res) {
-  console.time('NODES_TIME')
-
   let min_capacity = req.query.min_capacity;
   let max_capacity = req.query.max_capacity;
   let skip = req.query.skip;
@@ -33,13 +24,9 @@ router.get('/nodes', async function(req, res) {
     input = {min_capacity, max_capacity, skip, limit};
     res.json(await getNodesByTotalCapacity(input));
   }
-
-  console.timeEnd('NODES_TIME')
 });
 
 router.post('/nodes', async function(req, res) {
-  console.time('PEERS_TIME')
-
   const public_keys = req.body.public_keys;
   
   if (public_keys && public_keys.length) {
@@ -48,8 +35,6 @@ router.post('/nodes', async function(req, res) {
   else {
     res.status(400).json('Empty input public_keys');
   }
-
-  console.timeEnd('PEERS_TIME')
 });
 
 function verifyGetNodesByTotalCapacityInput(input) {

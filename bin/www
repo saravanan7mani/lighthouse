@@ -4,35 +4,56 @@
  * Module dependencies.
  */
 
-var app = require('../app');
-var debug = require('debug')('lighthouse:server');
-var http = require('http');
-var { createTerminus } = require('@godaddy/terminus')
+const app = require('../app');
+const debug = require('debug')('lighthouse:server');
+const http = require('http');
+const fs = require('fs');
+const { createTerminus } = require('@godaddy/terminus')
 const {initDB} = require('../db');
 const {getDB} = require('../db');
 const {initLND} = require('../lnd');
+const {loadGraphToDB} = require('../startup');
+const log4js = require("log4js");
+
+/**
+ * make a log directory, just in case it isn't there.
+ */
+try {
+  fs.mkdirSync('./log');
+} catch (e) {
+  if (e.code != 'EEXIST') {
+    console.error("Could not set up log directory, error was: ", e);
+    process.exit(1);
+  }
+}
+
+/**
+ * Initialise log4js first, so we don't miss any log messages
+ */
+log4js.configure('./log4js.json');
+const logger = log4js.getLogger("setup");
 
 /**
  * Get port from environment and store in Express.
  */
 
-var port = normalizePort(process.env.PORT || '3000');
+const port = normalizePort(process.env.PORT || '3000');
 app.set('port', port);
 
 /**
  * Create HTTP server.
  */
 
-var server = http.createServer(app);
+const server = http.createServer(app);
 
 function onSignal () {
-  console.log('server is starting cleanup')
+  logger.info('server is starting cleanup')
   try {
     getDB().close();
-    console.log('DB is closed.')
+    logger.info('DB is closed.')
   }
   catch(e) {
-    console.log('err while db close.' + e);
+    logger.error('err while db close.' + e);
   }
 }
 
@@ -47,8 +68,8 @@ createTerminus(server, {
 
 async function init() {
   await Promise.all([initDB(), initLND()]);
-  console.log('DB and LND initialized...')
-  // await loadGraphToDB();
+  logger.info('DB and LND initialized...')
+  await loadGraphToDB();
 }
 
 /**
@@ -66,7 +87,7 @@ init().then(() => {
  */
 
 function normalizePort(val) {
-  var port = parseInt(val, 10);
+  const port = parseInt(val, 10);
 
   if (isNaN(port)) {
     // named pipe
@@ -90,18 +111,18 @@ function onError(error) {
     throw error;
   }
 
-  var bind = typeof port === 'string'
+  const bind = typeof port === 'string'
     ? 'Pipe ' + port
     : 'Port ' + port;
 
   // handle specific listen errors with friendly messages
   switch (error.code) {
     case 'EACCES':
-      console.error(bind + ' requires elevated privileges');
+      logger.error(bind + ' requires elevated privileges');
       process.exit(1);
       break;
     case 'EADDRINUSE':
-      console.error(bind + ' is already in use');
+      logger.error(bind + ' is already in use');
       process.exit(1);
       break;
     default:
@@ -114,8 +135,8 @@ function onError(error) {
  */
 
 function onListening() {
-  var addr = server.address();
-  var bind = typeof addr === 'string'
+  const addr = server.address();
+  const bind = typeof addr === 'string'
     ? 'pipe ' + addr
     : 'port ' + addr.port;
   debug('Listening on ' + bind);

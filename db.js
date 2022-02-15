@@ -1,13 +1,13 @@
 const config = require('./config.json');
 const neo4j = require('neo4j-driver');
 const assert = require("assert");
-
+const logger = require('log4js').getLogger("db");
 let _db;
 
 function initDB() {
   return new Promise((resolve, reject) => {
     if (_db) {
-      console.warn("Trying to init neo4j DB again!");
+      logger.warn("Trying to init neo4j DB again!");
       return resolve();
     }
 

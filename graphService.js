@@ -1,15 +1,11 @@
 const {getDB} = require('./db');
 const neo4j = require('neo4j-driver');
 const {DB_QUERIES} = require('./constants');
+const logger = require('log4js').getLogger("graphservice");
 
 async function getNodesByTotalCapacity(input) {
-    console.log('getNodesByTotalCapacity - min_capacity: ' + input.min_capacity + ', max_capacity: ' + input.max_capacity + ', skip: ' + input.skip + ', limit: ' + input.limit);
+    logger.info('getNodesByTotalCapacity - min_capacity: ' + input.min_capacity + ', max_capacity: ' + input.max_capacity + ', skip: ' + input.skip + ', limit: ' + input.limit);
     const query = parseGetNodesByTotalCapacityInput(input);
-
-    console.log('countQuery: ' + query.countQuery);
-    console.log('countQueryArgs: ' + JSON.stringify(query.countQueryArgs));
-    console.log('nodesQuery: ' + query.nodesQuery);
-    console.log('nodesQueryArgs: ' + JSON.stringify(query.nodesQueryArgs));
 
     const driver = getDB();
     const session = driver.session();
@@ -55,7 +51,6 @@ async function getNodesByTotalCapacity(input) {
             return node;
         });
         response.nodes_count = response.nodes.length;
-        // console.log('getNodesByTotalCapacity-response: ' + JSON.stringify(response));
         return response;
     }
     finally {
@@ -156,7 +151,7 @@ function parseTotalCapacityInput(input, query) {
 }
 
 async function getPeersByNodes(input) {
-    console.log('getPeersByNodes - nodes: ' + input);
+    logger.info('getPeersByNodes - nodes: ' + input);
 
     const driver = getDB();
     const session = driver.session();

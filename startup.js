@@ -5,6 +5,7 @@ const {getDB} = require('./db');
 const {subscribeToLNDGraph} = require('./lndService');
 const config = require('./config.json');
 const {DB_QUERIES} = require('./constants');
+const logger = require('log4js').getLogger("startup");
 
 async function loadGraphToDB() {
     const driver = getDB();
@@ -13,8 +14,8 @@ async function loadGraphToDB() {
         const lnd = getLND();
         const lndGraphToDBHandler = subscribeToLNDGraph();
         const {channels, nodes} = await getNetworkGraph({lnd});
-        console.log((nodes.length) + ' LN nodes and ' + (channels.length) + ' LN channels to be loaded');
-        console.log((nodes.length + channels.length) + ' graph nodes and ' + (channels.length * 2) + ' graph edges to be loaded');
+        logger.info((nodes.length) + ' LN nodes and ' + (channels.length) + ' LN channels to be loaded');
+        logger.info((nodes.length + channels.length) + ' graph nodes and ' + (channels.length * 2) + ' graph edges to be loaded');
 
         session = driver.session();
         await session.writeTransaction(async tx => {
@@ -26,11 +27,10 @@ async function loadGraphToDB() {
         lndGraphToDBHandler.on('move', processLndGraphNotifications);
         lndGraphToDBHandler.moveToDB();
 
-        console.log((nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded');
-        return (nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded';
+        logger.info((nodes.length + channels.length) + ' nodes and ' + (channels.length * 2) + ' edges are loaded');
     }
     catch (e) {
-        console.trace('error while LND to DB data loading. ' + e);
+        logger.fatal('error while LND to DB data loading. ' + e);
         if (session) {
             await session.close()
         }
@@ -174,17 +174,18 @@ async function processNodeTotalCapacity(lnd, key, dbTx) {
     )
 }
 
+// to be replaced with above adter testings
 async function processNodeTotalCapacityNotify(lnd, key, dbTx) {
-    console.log('CLOSE NODE: processNodeTotalCapacityNotify-key: '+key);
+    logger.debug('CLOSE NODE: processNodeTotalCapacityNotify-key: '+key);
     let nodeDetail;
     try {
         nodeDetail = await getNode({lnd, public_key: key});
     }
     catch (e) {
-        console.trace('ERROR while getNode for keyof close channel notification : ' + key + ', err: ' + e)
+        logger.error('ERROR while getNode for keyof close channel notification : ' + key + ', err: ' + e)
         return;
     }
-    console.log('CLOSE NODE: processNodeTotalCapacityNotify-nodeDetail.capacity: '+nodeDetail.capacity + ', nodeDetail.channel_count: ' + nodeDetail.channel_count + ', key: ' + key)
+    logger.debug('CLOSE NODE: processNodeTotalCapacityNotify-nodeDetail.capacity: '+nodeDetail.capacity + ', nodeDetail.channel_count: ' + nodeDetail.channel_count + ', key: ' + key)
     return dbTx.run(
         DB_QUERIES.UPDATE_NODE_CAPACITY_INFO,
         {
@@ -198,16 +199,13 @@ async function processNodeTotalCapacityNotify(lnd, key, dbTx) {
 function processLndGraphNotifications() {
     const notifications = [...this.notifications];
     this.notifications = [];
-    // console.time('NOTIFICATION_LIST_'+notifications.length)
     for (let i = 0; i < notifications.length; i++) {
         processLndGraphNotification(notifications[i], this);
     }
-    // console.timeEnd('NOTIFICATION_LIST_'+notifications.length)
 }
 
 
 async function processLndGraphNotification(notification, lndGraphToDBHandler) {
-    // console.time('NOTIFICATION'+notification.updated_at)
     let session;
     try {
         const db = getDB();
@@ -217,7 +215,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
         await session.writeTransaction(async dbTx => {
             if (notification.public_key) {
                 const nodeDetail = await getNode({lnd, public_key: notification.public_key});
-                // console.log('\n\nnode update received: ' + JSON.stringify(notification) + '\nNODE CAP & CH COUNT: ' + nodeDetail.capacity + ' & ' + nodeDetail.channel_count);
+                // logger.debug('\n\nnode update received: ' + JSON.stringify(notification) + '\nNODE CAP & CH COUNT: ' + nodeDetail.capacity + ' & ' + nodeDetail.channel_count);
                 await dbTx.run(
                     DB_QUERIES.UPDATE_NODE_NOTIFICATION,
                     {
@@ -246,18 +244,18 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                         c_updated_at: notification.updated_at
                     }
                 );
-                console.log('\n\nchannel closed update received: ' + JSON.stringify(notification) + '\nNODE CAP & CH COUNT: ' + public_keys);
+                logger.debug('\n\nchannel closed update received: ' + JSON.stringify(notification) + '\nNODE CAP & CH COUNT: ' + public_keys);
                 if (public_keys && public_keys.records 
                     && typeof public_keys.records.length !== 'undefined' && public_keys.records.length == 2) {
-                        console.log('\nCLOSE NODE CAP & CH COUNT');
+                        logger.debug('\nCLOSE NODE CAP & CH COUNT');
                     await Promise.all([processNodeTotalCapacityNotify(lnd, public_keys.records[0].get('public_keys'), dbTx),
                     processNodeTotalCapacityNotify(lnd, public_keys.records[1].get('public_keys'), dbTx)]);
                 }
             } else {
-                // console.log('\n\nchannel update received: ' + JSON.stringify(notification));
+                // logger.debug('\n\nchannel update received: ' + JSON.stringify(notification));
                 const nodeDetails = await Promise.all([getNode({lnd, public_key: notification.public_keys[0]}), 
                             getNode({lnd, public_key: notification.public_keys[1]})]);
-                // console.log('\n\nchannel update received: ' + JSON.stringify(notification) + '\nNODE0 CAP & CH COUNT: ' + nodeDetails[0].capacity + ' & ' + nodeDetails[0].channel_count  + '\nNODE1 CAP & CH COUNT: ' + nodeDetails[1].capacity + ' & ' + nodeDetails[1].channel_count);
+                // logger.debug('\n\nchannel update received: ' + JSON.stringify(notification) + '\nNODE0 CAP & CH COUNT: ' + nodeDetails[0].capacity + ' & ' + nodeDetails[0].channel_count  + '\nNODE1 CAP & CH COUNT: ' + nodeDetails[1].capacity + ' & ' + nodeDetails[1].channel_count);
                 await dbTx.run(
                     DB_QUERIES.UPDATE_CHANNEL_NOTIFICATION,
                     {
@@ -292,17 +290,17 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
             await session.close();
         }
         catch(se) {
-            session.log('\n\nerror while session close.' + se);
+            logger.warn('\n\nerror while session close.' + se);
         }
-        console.trace('\n\nERROR while processing lightning graph notification. ' + e);
+        logger.error('while processing lightning graph notification. ' + e);
         if (notification.lh_max_retry && notification.lh_max_retry == config.lh_max_retry) {
-            console.log('\n\nCRITICAL ERROR: Failed to process the notification.' + JSON.stringify(notification));
+            logger.fatal('\n\nCRITICAL ERROR: Failed to process the notification.' + JSON.stringify(notification));
         }
         else {
-            console.log('\n\nWARNING: Failed to process the notification. Will retry: ' + JSON.stringify(notification));
+            logger.info('\n\nWARNING: Failed to process the notification. Will retry: ' + JSON.stringify(notification));
             notification.lh_max_retry = notification.lh_max_retry ? notification.lh_max_retry + 1 : 1;
             lndGraphToDBHandler.notifications.push(notification);
-            console.log('\n\nNew retry count: ' + notification.lh_max_retry);
+            logger.info('\n\nNew retry count: ' + notification.lh_max_retry);
         }
     }
 }
