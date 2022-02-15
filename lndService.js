@@ -15,11 +15,8 @@ class LndGraphToDBHandler extends EventEmitter {
 
 /**
 Assumptions based on ln-service & LND GRPC Docs and BOLT Spec:
-1. 
-2. 
-3. 
-4. There won't be any missing of notification.
-5. But in case of any network failure, there can be missing of notifications. - NEED TO BE FIXED WITH PRIMARY/SECONDARY.
+1. There won't be any missing of notification.
+2. But in case of any network failure, there can be missing of notifications. - NEED TO BE FIXED WITH PRIMARY/SECONDARY.
 */
 function subscribeToLNDGraph() {
     const lnd = getLND();

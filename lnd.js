@@ -12,15 +12,23 @@ function initLND() {
     }
 
     try {
-      const {lnd} = lnService.authenticatedLndGrpc({
-        cert: config.lnd.cert,
-        macaroon: config.lnd.macaroon,
-        socket: config.lnd.uri
-      });
-
-      _lnd = lnd;
-      
-      resolve();
+      const uri = process.env.NEO4J_URI || config.lnd.uri || '127.0.0.1:10009';
+      const username = process.env.NEO4J_USERNAME || config.lnd.cert || null;
+      const password = process.env.NEO4J_PASSWORD || config.lnd.macaroon || null;
+      if (!username || !password) {
+        reject('Missing lnd grpc credential.');
+      } 
+      else {
+        const {lnd} = lnService.authenticatedLndGrpc({
+          cert: config.lnd.cert,
+          macaroon: config.lnd.macaroon,
+          socket: config.lnd.uri
+        });
+  
+        _lnd = lnd;
+        
+        resolve();
+      }
     }
     catch(e) {
       reject('error while connecting lnd grpc. ' + e);

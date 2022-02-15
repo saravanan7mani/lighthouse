@@ -12,8 +12,10 @@ function initDB() {
     }
 
     try {
-        _db = neo4j.driver(config.neo4j.uri,
-          neo4j.auth.basic(config.neo4j.username, config.neo4j.password));
+        const uri = process.env.NEO4J_URI || config.neo4j.uri || 'bolt://localhost:7687';
+        const username = process.env.NEO4J_USERNAME || config.neo4j.username || 'neo4j';
+        const password = process.env.NEO4J_PASSWORD || config.neo4j.password || 'neo4j';
+        _db = neo4j.driver(uri, neo4j.auth.basic(username, password));
         resolve();
     }
     catch(e) {
