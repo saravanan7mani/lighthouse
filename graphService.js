@@ -30,22 +30,22 @@ async function getNodesList(input) {
         }
         response.nodes = response.nodes.records.map(record => {
             const node = {};
-            if (record.get('alias') !== null) {
+            if (record.get('alias') != null) {
                 node.alias = record.get('alias');
             }
-            if (record.get('capacity') !== null) {
+            if (record.get('capacity') != null) {
                 node.capacity = record.get('capacity');
             }
-            if (record.get('channel_count') !== null) {
+            if (record.get('channel_count') != null) {
                 node.channel_count = record.get('channel_count');
             }
-            if (record.get('public_key') !== null) {
+            if (record.get('public_key') != null) {
                 node.public_key = record.get('public_key');
             }
-            if (record.get('sockets') !== null) {
+            if (record.get('sockets') != null && record.get('sockets').length) {
                 node.sockets = record.get('sockets');
             }
-            if (record.get('updated_at') !== null) {
+            if (record.get('updated_at') != null) {
                 node.updated_at = record.get('updated_at');
             }
             return node;
@@ -185,7 +185,7 @@ async function getChannelsByNodes(input) {
                 if (record.get('n0').properties.color != null) {
                     node.color = record.get('n0').properties.color;
                 }
-                if (record.get('n0').properties.sockets != null) {
+                if (record.get('n0').properties.sockets != null && record.get('n0').properties.sockets.length) {
                     node.sockets = record.get('n0').properties.sockets;
                 }
             }
@@ -210,7 +210,7 @@ async function getChannelsByNodes(input) {
                 if (record.get('n1').properties.color != null) {
                     node.color = record.get('n1').properties.color;
                 }
-                if (record.get('n1').properties.sockets != null) {
+                if (record.get('n1').properties.sockets != null && record.get('n1').properties.sockets.length) {
                     node.sockets = record.get('n1').properties.sockets;
                 }
             }

@@ -231,7 +231,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                     }
                 );
                 if (public_keys && public_keys.records 
-                    && typeof public_keys.records.length !== 'undefined' && public_keys.records.length == 2) {
+                    && typeof public_keys.records.length !== 'undefined' && public_keys.records.length === 2) {
                     await Promise.all([processNodeTotalCapacity(lnd, public_keys.records[0].get('public_keys'), dbTx),
                     processNodeTotalCapacity(lnd, public_keys.records[1].get('public_keys'), dbTx)]);
                 }
@@ -274,7 +274,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
         catch(se) {
             logger.warn('Error while DB session close in error case of lightning graph notification processing: ' + se);
         }
-        if (notification.lh_max_retry && notification.lh_max_retry == config.lh_max_retry) {
+        if (notification.lh_max_retry && notification.lh_max_retry === config.lh_max_retry) {
             logger.fatal('CRITICAL ERROR Last retry failed to process the lightning graph notification.' + JSON.stringify(notification) + ', error: ' + e);
         }
         else {
