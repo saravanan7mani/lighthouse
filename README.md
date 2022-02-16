@@ -12,7 +12,9 @@ Neo4J
 LND
 
 ## Neo4j schema
-CREATE INDEX FOR (n:Node) ON (n.public_key)
+CREATE CONSTRAINT node_public_key_unique IF NOT EXISTS FOR (n:Node) REQUIRE n.public_key IS UNIQUE
+
+CREATE CONSTRAINT channel_channel_id_unique IF NOT EXISTS FOR (c:Channel) REQUIRE c.channel_id IS UNIQUE
 
 CREATE INDEX FOR (n:Node) ON (n.alias)
 
@@ -20,9 +22,7 @@ CREATE INDEX FOR (n:Node) ON (n.capacity)
 
 CREATE INDEX FOR (n:Node) ON (n.channel_count)
 
-CREATE INDEX FOR (n:Channel) ON (n.channel_id)
-
-CREATE INDEX FOR (n:Channel) ON (n.capacity)
+CREATE INDEX FOR (c:Channel) ON (c.capacity)
 
 
 ## Environment Variables:
