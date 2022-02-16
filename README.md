@@ -11,6 +11,19 @@ Neo4J
 
 LND
 
+## Neo4j schema
+CREATE INDEX FOR (n:Node) ON (n.public_key)
+
+CREATE INDEX FOR (n:Node) ON (n.alias)
+
+CREATE INDEX FOR (n:Node) ON (n.capacity)
+
+CREATE INDEX FOR (n:Node) ON (n.channel_count)
+
+CREATE INDEX FOR (n:Channel) ON (n.channel_id)
+
+CREATE INDEX FOR (n:Channel) ON (n.capacity)
+
 
 ## Environment Variables:
 process.env.PORT
