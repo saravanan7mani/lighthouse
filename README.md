@@ -2,10 +2,15 @@
 Lightnig Network Explorer
 
 ## Built with:
+
 NodeJS
+
 Express
+
 Neo4J
+
 LND
+
 
 ## Environment Variables:
 process.env.PORT
@@ -29,7 +34,7 @@ process.env.LND_MACAROON - base64
 #### Request:
 GET /nodes
 
-Query params:
+##### Query params:
 
 min_capacity - capacity in sats
 
@@ -64,7 +69,8 @@ limit - no. of nodes to return
 #### Request:
 POST /nodes
 
-body json:
+##### body json:
+
 {"public_keys": [public keys]}
 
 #### Sample response:
