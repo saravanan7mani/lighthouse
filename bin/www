@@ -1,23 +1,16 @@
 #!/usr/bin/env node
 
-/**
- * Module dependencies.
- */
-
 const app = require('../app');
 const debug = require('debug')('lighthouse:server');
 const http = require('http');
 const fs = require('fs');
-const { createTerminus } = require('@godaddy/terminus')
+const {createTerminus} = require('@godaddy/terminus')
 const {initDB} = require('../db');
 const {getDB} = require('../db');
 const {initLND} = require('../lnd');
 const {loadGraphToDB} = require('../startup');
 const log4js = require("log4js");
 
-/**
- * make a log directory, just in case it isn't there.
- */
 try {
   fs.mkdirSync('./log');
 } catch (e) {
@@ -27,33 +20,22 @@ try {
   }
 }
 
-/**
- * Initialise log4js first, so we don't miss any log messages
- */
-log4js.configure('./log4js.json');
-const logger = log4js.getLogger("setup");
-
-/**
- * Get port from environment and store in Express.
- */
+log4js.configure('./configs/log4js.json');
+const logger = log4js.getLogger("www");
 
 const port = normalizePort(process.env.PORT || '3000');
 app.set('port', port);
 
-/**
- * Create HTTP server.
- */
-
 const server = http.createServer(app);
 
 function onSignal () {
-  logger.info('server is starting cleanup')
+  logger.info('server cleanup is started')
   try {
     getDB().close();
     logger.info('DB is closed.')
   }
   catch(e) {
-    logger.error('err while db close.' + e);
+    logger.error('error while DB close. ' + e);
   }
 }
 
@@ -72,39 +54,25 @@ async function init() {
   await loadGraphToDB();
 }
 
-/**
- * Listen on provided port, on all network interfaces.
- */
 init().then(() => {
   server.listen(port);
   server.on('error', onError);
   server.on('listening', onListening);
 })
 
-
-/**
- * Normalize a port into a number, string, or false.
- */
-
 function normalizePort(val) {
   const port = parseInt(val, 10);
 
   if (isNaN(port)) {
-    // named pipe
     return val;
   }
 
   if (port >= 0) {
-    // port number
     return port;
   }
 
   return false;
 }
-
-/**
- * Event listener for HTTP server "error" event.
- */
 
 function onError(error) {
   if (error.syscall !== 'listen') {
@@ -115,7 +83,6 @@ function onError(error) {
     ? 'Pipe ' + port
     : 'Port ' + port;
 
-  // handle specific listen errors with friendly messages
   switch (error.code) {
     case 'EACCES':
       logger.error(bind + ' requires elevated privileges');
@@ -129,10 +96,6 @@ function onError(error) {
       throw error;
   }
 }
-
-/**
- * Event listener for HTTP server "listening" event.
- */
 
 function onListening() {
   const addr = server.address();

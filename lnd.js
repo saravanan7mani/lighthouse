@@ -1,4 +1,4 @@
-const config = require('./config.json');
+const config = require('./configs/config.json');
 const lnService = require('ln-service');
 const assert = require("assert");
 const logger = require('log4js').getLogger("lnd");

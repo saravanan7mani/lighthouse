@@ -1,8 +1,9 @@
 const {loadGraphToDB} = require('../startup');
-const {getNodesByTotalCapacity} = require('../graphService');
-const {getPeersByNodes} = require('../graphService');
+const {getNodesList} = require('../graphService');
+const {getChannelsByNodes} = require('../graphService');
 const express = require('express');
 const router = express.Router();
+const logger = require('log4js').getLogger("graph");
 
 router.get('/nodes', async function(req, res) {
   let min_capacity = req.query.min_capacity;
@@ -11,8 +12,9 @@ router.get('/nodes', async function(req, res) {
   let limit = req.query.limit;
 
   let input = {min_capacity, max_capacity, skip, limit};
-  const errMsg = verifyGetNodesByTotalCapacityInput(input);
+  const errMsg = verifyGetNodesRequest(input);
   if (errMsg.length) {
+    logger.warn('Invalid input for get nodes request: ' + errMsg);
     res.status(400).json(errMsg);
   }
   else {
@@ -22,7 +24,7 @@ router.get('/nodes', async function(req, res) {
     limit = parseInt(limit);
 
     input = {min_capacity, max_capacity, skip, limit};
-    res.json(await getNodesByTotalCapacity(input));
+    res.json(await getNodesList(input));
   }
 });
 
@@ -30,14 +32,21 @@ router.post('/nodes', async function(req, res) {
   const public_keys = req.body.public_keys;
   
   if (public_keys && public_keys.length) {
-    res.json(await getPeersByNodes(public_keys));
+    if (public_keys.length > 1000) {
+      res.status(400).json('More than 1000 public_keys are not allowed.');
+    }
+    else {
+      logger.warn('More than 1000 public_keys are requested by client for get nodes.');
+      res.json(await getChannelsByNodes(public_keys));
+    }
   }
   else {
-    res.status(400).json('Empty input public_keys');
+    logger.warn('Empty public_keys by client for get nodes.');
+    res.status(400).json('Empty public_keys');
   }
 });
 
-function verifyGetNodesByTotalCapacityInput(input) {
+function verifyGetNodesRequest(input) {
   let errMsg = '';
 
   const min_capacity = parseInt(input.min_capacity);

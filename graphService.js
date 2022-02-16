@@ -1,11 +1,11 @@
 const {getDB} = require('./db');
 const neo4j = require('neo4j-driver');
 const {DB_QUERIES} = require('./constants');
-const logger = require('log4js').getLogger("graphservice");
+const logger = require('log4js').getLogger("graphService");
 
-async function getNodesByTotalCapacity(input) {
-    logger.info('getNodesByTotalCapacity - min_capacity: ' + input.min_capacity + ', max_capacity: ' + input.max_capacity + ', skip: ' + input.skip + ', limit: ' + input.limit);
-    const query = parseGetNodesByTotalCapacityInput(input);
+async function getNodesList(input) {
+    logger.info('Request for node list is received for min_capacity: ' + input.min_capacity + ', max_capacity: ' + input.max_capacity + ', skip: ' + input.skip + ', limit: ' + input.limit);
+    const query = prepareGetNodesQuery(input);
 
     const driver = getDB();
     const session = driver.session();
@@ -13,7 +13,7 @@ async function getNodesByTotalCapacity(input) {
     try {
         const results = await session.readTransaction(async tx => {
             const txPromises = [];
-            if (query.isTotalRequired) {
+            if (query.isTotalQueryRequired) {
                 txPromises.push(tx.run(query.countQuery, query.countQueryArgs));
             }
             txPromises.push(tx.run(query.nodesQuery, query.nodesQueryArgs));
@@ -21,7 +21,7 @@ async function getNodesByTotalCapacity(input) {
         });
 
         const response = {};
-        if (query.isTotalRequired) {
+        if (query.isTotalQueryRequired) {
             response.total = results[0].records[0].get('total').low;
             response.nodes = results[1];
         }
@@ -58,21 +58,21 @@ async function getNodesByTotalCapacity(input) {
     }
 }
 
-function parseGetNodesByTotalCapacityInput(input) {
+function prepareGetNodesQuery(input) {
     let countQuery;
     let nodesQuery;
 
     let countQueryArgs = {};
     let nodesQueryArgs = {};
 
-    let isTotalRequired = false;
+    let isTotalQueryRequired = false;
 
     if (Number.isSafeInteger(input.skip) && input.skip > 0) {
         nodesQueryArgs.skip = neo4j.int(input.skip);
     }
     else {
         nodesQueryArgs.skip = neo4j.int(0);
-        isTotalRequired = true;
+        isTotalQueryRequired = true;
     }
 
     if (Number.isSafeInteger(input.limit) && input.limit > 0) {
@@ -82,14 +82,14 @@ function parseGetNodesByTotalCapacityInput(input) {
         nodesQueryArgs.limit = neo4j.int(100);
     }
 
-    const query = {countQuery, countQueryArgs, nodesQuery, nodesQueryArgs, isTotalRequired};
+    const query = {countQuery, countQueryArgs, nodesQuery, nodesQueryArgs, isTotalQueryRequired};
 
-    parseTotalCapacityInput(input, query);
+    prepareGetNodesByTotalCapacityQuery(input, query);
     
     return query;
 }
 
-function parseTotalCapacityInput(input, query) {
+function prepareGetNodesByTotalCapacityQuery(input, query) {
 
     if (Number.isSafeInteger(input.min_capacity) && input.min_capacity > 0) {
         query.nodesQueryArgs.min_capacity = neo4j.int(input.min_capacity);
@@ -106,7 +106,7 @@ function parseTotalCapacityInput(input, query) {
             delete query.nodesQueryArgs.max_capacity;
     }
 
-    if (query.isTotalRequired) {
+    if (query.isTotalQueryRequired) {
         if (query.nodesQueryArgs.min_capacity) {
             query.countQueryArgs.min_capacity = query.nodesQueryArgs.min_capacity;
         }
@@ -120,38 +120,38 @@ function parseTotalCapacityInput(input, query) {
 
     if (query.nodesQueryArgs.min_capacity && query.nodesQueryArgs.max_capacity) {
         query.nodesQuery = DB_QUERIES.GET_NODES_BY_MIN_MAX_CAPACITY;
-        if (query.isTotalRequired) {
+        if (query.isTotalQueryRequired) {
             query.countQuery = DB_QUERIES.GET_NODES_COUNT_BY_MIN_MAX_CAPACITY;
         }
     }
     else if (query.nodesQueryArgs.min_capacity) {
         query.nodesQuery = DB_QUERIES.GET_NODES_BY_MIN_CAPACITY;
-        if (query.isTotalRequired) {
+        if (query.isTotalQueryRequired) {
             query.countQuery = DB_QUERIES.GET_NODES_COUNT_BY_MIN_CAPACITY;
         }
     }
     else if (query.nodesQueryArgs.max_capacity) {
         query.nodesQuery = DB_QUERIES.GET_NODES_BY_MAX_CAPACITY;
-        if (query.isTotalRequired) {
+        if (query.isTotalQueryRequired) {
             query.countQuery = DB_QUERIES.GET_NODES_COUNT_BY_MAX_CAPACITY;
         }
     }
     else if (query.nodesQueryArgs.capacity) {
         query.nodesQuery = DB_QUERIES.GET_NODES_BY_CAPACITY;
-        if (query.isTotalRequired) {
+        if (query.isTotalQueryRequired) {
             query.countQuery = DB_QUERIES.GET_NODES_COUNT_BY_CAPACITY;
         }
     }
     else {
         query.nodesQuery = DB_QUERIES.GET_NODES;
-        if (query.isTotalRequired) {
+        if (query.isTotalQueryRequired) {
             query.countQuery = DB_QUERIES.GET_NODES_COUNT;
         }
     }
 }
 
-async function getPeersByNodes(input) {
-    logger.info('getPeersByNodes - nodes: ' + input);
+async function getChannelsByNodes(input) {
+    logger.info('Request for channel details for nodes is received for ' + input.length + ' number of public keys');
 
     const driver = getDB();
     const session = driver.session();
@@ -218,6 +218,8 @@ async function getPeersByNodes(input) {
             const channel = {};
             channels.push(channel);
             channel.channel_id = record.get('c').properties.channel_id;
+            channel.n0_public_key = n0_public_key;
+            channel.n1_public_key = n1_public_key;
             if (record.get('c').properties.capacity != null) {
                 channel.capacity = record.get('c').properties.capacity;  
             }
@@ -280,6 +282,6 @@ async function getPeersByNodes(input) {
 }
 
 module.exports = {
-    getNodesByTotalCapacity,
-    getPeersByNodes
+    getNodesList,
+    getChannelsByNodes
 }
