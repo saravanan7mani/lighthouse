@@ -1,36 +1,47 @@
 # lighthouse
 Lightnig Network Explorer
 
-Built with:
+## Built with:
 NodeJS
 Express
 Neo4J
 LND
 
-Environment Variables:
+## Environment Variables:
 process.env.PORT
 
 process.env.NEO4J_URI
+
 process.env.NEO4J_USERNAME
+
 process.env.NEO4J_PASSWORD
 
 process.env.LND_URI
-process.env.LND_CERT - base64 
+
+process.env.LND_CERT - base64
+
 process.env.LND_MACAROON - base64
 
-v0.1 API:
-1. Get nodes by total capacity size.
 
-Request:
+## v0.1 API:
+### 1. Get nodes by total capacity size.
+
+#### Request:
 GET /nodes
 
 Query params:
+
 min_capacity - capacity in sats
+
 max_capacity - capacity in sats
+
 skip - no. of nodes to skip
+
 limit - no. of nodes to return
 
-Sample response:
+
+#### Sample response:
+```json
 {
     "nodes_count":2,
     "nodes":[{
@@ -39,24 +50,25 @@ Sample response:
         "channel_count":1,
         "public_key":"221b9196e8b0ccd1c13b4880112d2222c9c2132879f5e6b16f17ffaeb84fb064a2",
         "sockets":["127.0.0.1:9735"],
-        "updated_at":"2021-11-23T01:01:43.000Z
-    "},
+        "updated_at":"2021-11-23T01:01:43.000Z"
+    },
     {   
         "capacity":30000,
         "channel_count":5,
         "public_key":"644b9196e8b0ccd1c13b4880112d2222c9c2132879f5e6b16f17ffaeb84fb064a7",
     }]
 }
+```
+### 2. Get nodes, their peer nodes and channels by public keys
 
-2. Get nodes, their peer nodes and channels by public keys
-
-Request:
+#### Request:
 POST /nodes
 
 body json:
 {"public_keys": [public keys]}
 
-Sample response:
+#### Sample response:
+```json
 {
     "nodes": [
         {
@@ -82,7 +94,7 @@ Sample response:
             ]
         },
     ],
-    "nodes_count": 8,
+    "nodes_count": 2,
     "channels": [
         {
             "channel_id": "2135616x31x0",
@@ -105,9 +117,9 @@ Sample response:
             "n1_updated_at": "2022-02-14T18:37:06.000Z"
         }
     ],
-    "channel_count": 6
+    "channel_count": 1
 }
-
+```
 
 
 
