@@ -14,12 +14,9 @@ function initLND() {
 
     try {
       const uri = process.env.LND_URI || config.lnd.uri || '127.0.0.1:10009';
-      const cert = process.env.LND_CERT || config.lnd.cert || null;
+      const cert = process.env.LND_CERT || config.lnd.cert || '';
       const macaroon = process.env.LND_MACAROON || config.lnd.macaroon || null;
-      if (!cert || !macaroon) {
-        reject('Missing lnd grpc credential.');
-      } 
-      else {
+      if (macaroon != null) {
         const {lnd} = lnService.authenticatedLndGrpc({
           cert: cert,
           macaroon: macaroon,
@@ -29,6 +26,9 @@ function initLND() {
         _lnd = lnd;
         
         resolve();
+      } 
+      else {
+        reject('Missing macaroon for lnd auth.');
       }
     }
     catch(e) {

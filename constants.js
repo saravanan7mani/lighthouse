@@ -73,12 +73,12 @@ const DB_QUERIES = {
             ON CREATE SET n0.public_key = $n0_public_key
             ON CREATE SET n1.public_key = $n1_public_key
             ON CREATE SET c.channel_id = $c_channel_id
-            ON CREATE SET c.channel_point = $c_channel_point
             SET n0.capacity = $n0_capacity
             SET n0.channel_count = $n0_channel_count
             SET n1.capacity = $n1_capacity
             SET n1.channel_count = $n1_channel_count
-            SET c.capacity = $c_capacity
+            SET (CASE WHEN $c_capacity IS NOT NULL THEN c END).capacity = $c_capacity
+            SET (CASE WHEN $c_channel_point IS NOT NULL THEN c END).channel_point = $c_channel_point
             SET c.updated_at = datetime($c_updated_at)
             SET r0.base_fee_mtokens = $r0_base_fee_mtokens
             SET r0.cltv_delta = $r0_cltv_delta
@@ -96,8 +96,8 @@ const DB_QUERIES = {
         SET c.closed = true
         SET c.updated_at = datetime($c_updated_at)
         SET c.close_height = $c_close_height
-        SET (CASE WHEN c.capacity IS NULL THEN c END).capacity = $c_capacity
-        SET (CASE WHEN c.channel_point IS NULL THEN c END).channel_point = $c_channel_point
+        SET (CASE WHEN $c_capacity IS NOT NULL THEN c END).capacity = $c_capacity
+        SET (CASE WHEN $c_channel_point IS NOT NULL THEN c END).channel_point = $c_channel_point
         WITH c
         MATCH (n0)-[r0:OPENED]->(c)<-[r1:OPENED]-(n1)
         DELETE r0, r1
