@@ -1,0 +1,9 @@
+{
+    "neo4j" : {
+        "uri": "bolt://localhost:7687"
+    },
+    "lnd": {
+        "uri": "127.0.0.1:10009"
+    },
+    "lh_max_retry": 3
+}
