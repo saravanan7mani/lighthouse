@@ -1,7 +1,7 @@
 # lighthouse
 Lightnig Network Explorer
 
-## Built with:
+## Built with
 
 NodeJS v16.14.0
 
@@ -25,7 +25,7 @@ CREATE INDEX FOR (n:Node) ON (n.channel_count)
 CREATE INDEX FOR (c:Channel) ON (c.capacity)
 
 
-## Environment Variables:
+## Environment variables
 process.env.PORT
 
 process.env.NEO4J_URI
@@ -41,7 +41,7 @@ process.env.LND_CERT - base64
 process.env.LND_MACAROON - base64
 
 
-## v0.1 API:
+## API
 ### 1. Get nodes by total capacity size.
 
 #### Request:
