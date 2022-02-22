@@ -3,7 +3,6 @@ const {getNetworkGraph} = require('ln-service');
 const {getNode} = require('ln-service');
 const {subscribeToLNDGraph} = require('./lndService');
 const {getDB} = require('./db');
-const fs = require('fs');
 
 const config = require('./configs/config.json');
 const {DB_QUERIES} = require('./constants');
@@ -13,22 +12,29 @@ async function loadGraphToDB() {
     try {
         const lndGraphToDBHandler = subscribeToLNDGraph();
         const lnd = getLND();
-        const {channels, nodes} = await getNetworkGraph({lnd});
-        // let nodes = fs.readFileSync('/Users/samani2/projects/btc/test/graphnodes.json')
-        // nodes = JSON.parse(nodes);
+        let {channels, nodes} = await getNetworkGraph({lnd});
 
-        // let channels = fs.readFileSync('/Users/samani2/projects/btc/test/graphchannels.json')
-        // channels = JSON.parse(channels);
-
-        logger.info('LND returned ' + (nodes.length) + ' LN nodes and ' + (channels.length) + ' LN channels for describegraph');
-        logger.info('Neo4j DB will load ' + (nodes.length + channels.length) + ' graph nodes and ' + (channels.length * 2) + ' graph edges.');
+        const node_count = nodes.length;
+        const channel_count = channels.length;
+        logger.info('LND returned ' + node_count + ' LN nodes and ' + (channel_count) + ' LN channels for describegraph');
+        logger.info('Neo4j DB will load ' + (node_count + channel_count) + ' graph nodes and ' + (channel_count * 2) + ' graph edges.');
         
-        await populateGraph(nodes, channels);
+        let validNodes = new Set();
+        await populateNodes(nodes, validNodes);
+        nodes = null;
+        let validChannels = new Set();
+        await populateChannels(channels, validNodes, validChannels);
+        channels = null;
+        await deleteStaleChannels(validChannels); // To remove stale channels & nodes from DB that are missed by above update query.
+        validChannels = null;
+        await deleteStaleNodes(validNodes);
+        validNodes = null;
+        await updateNodeTotalCapacity();
 
         lndGraphToDBHandler.on('move', processLndGraphNotifications);
         lndGraphToDBHandler.moveToDB();
 
-        logger.info('Neo4j DB has loaded ' + (nodes.length + channels.length) + ' graph nodes and ' + (channels.length * 2) + ' graph edges.');
+        logger.info('Neo4j DB has loaded ' + (node_count + channel_count) + ' graph nodes and ' + (channel_count * 2) + ' graph edges.');
     }
     catch (e) {
         logger.fatal('Error while loading describegraph data from LND to Neo4j DB. Restart the server. Error: ' + e);
@@ -36,21 +42,10 @@ async function loadGraphToDB() {
     }
 }
 
-async function populateGraph(nodes, channels) {
-    const validNodes = new Set();
-    await populateNodes(nodes, validNodes);
-    const validChannels = new Set();
-    await populateChannels(channels, validNodes, validChannels);
-    await deleteStaleChannels(validChannels); // To remove stale channels & nodes from DB that are missed by above update query.
-    await deleteStaleNodes(validNodes);
-    await updateNodeTotalCapacity(validNodes);
-}
-
 async function populateNodes(nodes, validNodes) {
     const driver = getDB();
-    let session;
+    const session = driver.session();
     try {
-        session = driver.session();
         await session.writeTransaction(async tx => {
             const txPromises = [];
             for (let i = 0; i < nodes.length; i++) {
@@ -71,17 +66,14 @@ async function populateNodes(nodes, validNodes) {
             return await Promise.all(txPromises);
         });
     } finally {
-        if (session) {
-            await session.close();
-        }
+        await session.close();
     } 
 }
-// NOTE: There are nodes which has channels but no node info in describegraph.
+
 async function populateChannels(channels, validNodes, validChannels) {
     const driver = getDB();
-    let session;
+    const session = driver.session();
     try {
-        session = driver.session();
         await session.writeTransaction(async tx => {
             const txPromises = [];
             for (let i = 0; i < channels.length; i++) {
@@ -122,17 +114,14 @@ async function populateChannels(channels, validNodes, validChannels) {
             return Promise.all(txPromises);
         });
     } finally {
-        if (session) {
-            await session.close();
-        }
+        await session.close();
     }
 }
 
 async function deleteStaleChannels(validChannels) {
     const driver = getDB();
-    let session;
+    const session = driver.session();
     try {
-        session = driver.session();
         await session.writeTransaction(async tx => {
             const existing_channel_ids = await tx.run(
                 DB_QUERIES.ALL_CHANNEL_IDS
@@ -155,17 +144,14 @@ async function deleteStaleChannels(validChannels) {
             return Promise.all(channelGraphNodeCleanupPromises);
         });
     } finally {
-        if (session) {
-            await session.close();
-        }
+        await session.close();
     }
 }
 
 async function deleteStaleNodes(validNodes) {
     const driver = getDB();
-    let session;
+    const session = driver.session();
     try {
-        session = driver.session();
         await session.writeTransaction(async tx => {
             const existing_public_keys = await tx.run(
                 DB_QUERIES.ALL_NODE_PUBLIC_KEYS
@@ -188,15 +174,21 @@ async function deleteStaleNodes(validNodes) {
             return Promise.all(nodeGraphNodeCleanupPromises);
         });
     } finally {
-        if (session) {
-            await session.close();
-        }
+        await session.close();
     }
 }
 
 async function updateNodeTotalCapacity(validNodes) {
-    for (let key of validNodes) {
-        await processNodeTotalCapacity(key);
+    const driver = getDB();
+    const session = driver.session();
+    try {
+        await session.writeTransaction(async tx => {
+            return tx.run(
+                DB_QUERIES.UPDATE_NODES_CAPACITY_INFO
+            )
+        });
+    } finally {
+        await session.close();
     }
 }
 
@@ -212,9 +204,8 @@ async function processNodeTotalCapacity(key) {
     }
     logger.trace('Total channel capacity for node key: '+ key +', capacity: ' + nodeDetail.capacity +', + channel count: ' + nodeDetail.channel_count)
     const driver = getDB();
-    let session;
+    const session = driver.session();
     try {
-        session = driver.session();
         await session.writeTransaction(async tx => {
             return tx.run(
                 DB_QUERIES.UPDATE_NODE_CAPACITY_INFO,
@@ -226,9 +217,7 @@ async function processNodeTotalCapacity(key) {
             )
         });
     } finally {
-        if (session) {
-            await session.close();
-        }
+        await session.close();
     }
 }
 
@@ -240,13 +229,10 @@ async function processLndGraphNotifications() {
     }
 }
 
-
 async function processLndGraphNotification(notification, lndGraphToDBHandler) {
-    let session;
+    const driver = getDB();
+    const session = driver.session();
     try {
-        const driver = getDB();
-        session = driver.session();
-
         await session.writeTransaction(async tx => {
             const lnd = getLND();
             if (notification.public_key) {
@@ -309,14 +295,11 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                 );
             }
         });
-
         await session.close();
     }
     catch(e) {
         try {
-            if (session) {
-                await session.close();
-            }
+            await session.close();
         }
         catch(se) {
             logger.warn('Error while DB session close in error case of lightning graph notification processing: ' + se);

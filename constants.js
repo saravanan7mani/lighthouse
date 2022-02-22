@@ -39,6 +39,11 @@ const DB_QUERIES = {
 
     DELETE_NODES_BY_NODE_PUBLIC_KEYS: `MATCH (n:Node {public_key: $public_key}) DETACH DELETE n`,
 
+    UPDATE_NODES_CAPACITY_INFO: `MATCH (n0:Node)-[r0:OPENED]->(c:Channel)
+        WITH n0, COUNT(c) AS n0_channel_count, SUM(c.capacity) AS n0_capacity
+        SET n0.capacity = n0_capacity
+        SET n0.channel_count = n0_channel_count`,
+
     UPDATE_NODE_CAPACITY_INFO: `Match (n:Node {public_key: $public_key})
         SET n.capacity = $capacity
         SET n.channel_count = $channel_count`,

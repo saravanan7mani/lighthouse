@@ -13,8 +13,6 @@
     "http-errors": "~1.6.3",
     "ln-service": "^53.6.0",
     "log4js": "^6.4.1",
-    "morgan": "~1.9.1",
-    "neo4j-driver": "^4.4.1",
-    "pug": "^3.0.2"
+    "neo4j-driver": "^4.4.1"
   }
 }

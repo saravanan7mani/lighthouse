@@ -36,7 +36,6 @@ router.post('/nodes', async function(req, res) {
       res.status(400).json('More than 1000 public_keys are not allowed.');
     }
     else {
-      logger.warn('More than 1000 public_keys are requested by client for get nodes.');
       res.json(await getChannelsByNodes(public_keys));
     }
   }
