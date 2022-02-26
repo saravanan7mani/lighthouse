@@ -1,5 +1,6 @@
 const {getLND} = require('./lnd');
 const {getNetworkGraph} = require('ln-service');
+const neo4j = require('neo4j-driver');
 const {getNode} = require('ln-service');
 const {subscribeToLNDGraph} = require('./lndService');
 const {getDB} = require('./db');
@@ -115,24 +116,24 @@ async function populateChannels(channels, validNodes, validChannels) {
 
                             c_channel_id: channel.id,
                             c_channel_point: channel.transaction_id + ':' + channel.transaction_vout,
-                            c_capacity: channel.capacity,
-                            c_updated_at: ((channel.updated_at) ? channel.updated_at : null),
+                            c_capacity: neo4j.int(channel.capacity),
+                            c_updated_at: channel.updated_at != null ? channel.updated_at : null,
 
-                            r0_base_fee_mtokens: channel.policies[0].base_fee_mtokens || null,
-                            r0_cltv_delta: channel.policies[0].cltv_delta || null,
-                            r0_fee_rate: channel.policies[0].fee_rate || null,
-                            r0_is_disabled: channel.policies[0].is_disabled || null,
-                            r0_max_htlc_mtokens: channel.policies[0].max_htlc_mtokens || null,
-                            r0_min_htlc_mtokens: channel.policies[0].min_htlc_mtokens || null,
-                            r0_updated_at: ((channel.policies[0].updated_at) ? channel.policies[0].updated_at : null),
+                            r0_base_fee_mtokens: channel.policies[0].base_fee_mtokens != null ? neo4j.int(channel.policies[0].base_fee_mtokens) : null,
+                            r0_cltv_delta: channel.policies[0].cltv_delta != null ? neo4j.int(channel.policies[0].cltv_delta) : null,
+                            r0_fee_rate: channel.policies[0].fee_rate != null ? neo4j.int(channel.policies[0].fee_rate) : null,
+                            r0_is_disabled: channel.policies[0].is_disabled != null ? channel.policies[0].is_disabled : null,
+                            r0_max_htlc_mtokens: channel.policies[0].max_htlc_mtokens != null ? neo4j.int(channel.policies[0].max_htlc_mtokens) : null,
+                            r0_min_htlc_mtokens: channel.policies[0].min_htlc_mtokens != null ? neo4j.int(channel.policies[0].min_htlc_mtokens) : null,
+                            r0_updated_at: channel.policies[0].updated_at != null ? channel.policies[0].updated_at : null,
                             
-                            r1_base_fee_mtokens: channel.policies[1].base_fee_mtokens || null,
-                            r1_cltv_delta: channel.policies[1].cltv_delta || null,
-                            r1_fee_rate: channel.policies[1].fee_rate || null,
-                            r1_is_disabled: channel.policies[1].is_disabled || null,
-                            r1_max_htlc_mtokens: channel.policies[1].max_htlc_mtokens || null,
-                            r1_min_htlc_mtokens: channel.policies[1].min_htlc_mtokens || null,
-                            r1_updated_at: ((channel.policies[1].updated_at) ? channel.policies[1].updated_at : null)
+                            r1_base_fee_mtokens: channel.policies[1].base_fee_mtokens != null ? neo4j.int(channel.policies[1].base_fee_mtokens) : null,
+                            r1_cltv_delta: channel.policies[1].cltv_delta != null ? neo4j.int(channel.policies[1].cltv_delta) : null,
+                            r1_fee_rate: channel.policies[1].fee_rate != null ? neo4j.int(channel.policies[1].fee_rate) : null,
+                            r1_is_disabled: channel.policies[1].is_disabled != null ? channel.policies[1].is_disabled : null,
+                            r1_max_htlc_mtokens: channel.policies[1].max_htlc_mtokens != null ? neo4j.int(channel.policies[1].max_htlc_mtokens) : null,
+                            r1_min_htlc_mtokens: channel.policies[1].min_htlc_mtokens != null ? neo4j.int(channel.policies[1].min_htlc_mtokens) : null,
+                            r1_updated_at: channel.policies[1].updated_at != null ? channel.policies[1].updated_at : null
                         }
                     ));
                 }
@@ -239,8 +240,8 @@ async function processNodeTotalCapacity(key) {
                 DB_QUERIES.UPDATE_NODE_CAPACITY_INFO,
                 {
                     public_key : key,
-                    capacity : nodeDetail.capacity,
-                    channel_count : nodeDetail.channel_count
+                    capacity : neo4j.int(nodeDetail.capacity),
+                    channel_count : neo4j.int(nodeDetail.channel_count)
                 }
             )
         });
@@ -271,9 +272,9 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                         public_key: notification.public_key,
                         alias: notification.alias,
                         color: notification.color,
-                        sockets: notification.sockets || null,
-                        capacity : nodeDetail.capacity,
-                        channel_count : nodeDetail.channel_count,
+                        sockets: notification.sockets != null ? notification.sockets : null,
+                        capacity : neo4j.int(nodeDetail.capacity),
+                        channel_count : neo4j.int(nodeDetail.channel_count),
                         updated_at: notification.updated_at
                     }
                 );
@@ -285,7 +286,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                         c_channel_id: notification.id,
                         c_close_height: notification.close_height,
                         c_channel_point: (notification.transaction_id != null && notification.transaction_vout != null) ? (notification.transaction_id + ':' + notification.transaction_vout) : null,
-                        c_capacity: (notification.capacity != null) ? notification.capacity : null,
+                        c_capacity: notification.capacity != null ? neo4j.int(notification.capacity) : null,
                         c_updated_at: notification.updated_at
                     }
                 );
@@ -302,22 +303,22 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                     {
                         n0_public_key: notification.public_keys[0],
                         n1_public_key: notification.public_keys[1],
-                        n0_capacity : nodeDetails[0].capacity,
-                        n0_channel_count : nodeDetails[0].channel_count,
-                        n1_capacity : nodeDetails[1].capacity,
-                        n1_channel_count : nodeDetails[1].channel_count,
+                        n0_capacity : neo4j.int(nodeDetails[0].capacity),
+                        n0_channel_count : neo4j.int(nodeDetails[0].channel_count),
+                        n1_capacity : neo4j.int(nodeDetails[1].capacity),
+                        n1_channel_count : neo4j.int(nodeDetails[1].channel_count),
     
                         c_channel_id: notification.id,
                         c_channel_point: (notification.transaction_id != null && notification.transaction_vout != null) ? (notification.transaction_id + ':' + notification.transaction_vout) : null,
-                        c_capacity: (notification.capacity != null) ? notification.capacity : null,
+                        c_capacity: (notification.capacity != null) ? neo4j.int(notification.capacity) : null,
                         c_updated_at: notification.updated_at,
     
-                        r0_base_fee_mtokens: notification.base_fee_mtokens,
-                        r0_cltv_delta: notification.cltv_delta,
-                        r0_fee_rate: notification.fee_rate,
+                        r0_base_fee_mtokens: neo4j.int(notification.base_fee_mtokens),
+                        r0_cltv_delta: neo4j.int(notification.cltv_delta),
+                        r0_fee_rate: neo4j.int(notification.fee_rate),
                         r0_is_disabled: notification.is_disabled,
-                        r0_max_htlc_mtokens: notification.max_htlc_mtokens || null,
-                        r0_min_htlc_mtokens: notification.min_htlc_mtokens,
+                        r0_max_htlc_mtokens: notification.max_htlc_mtokens != null ? neo4j.int(notification.max_htlc_mtokens) : null,
+                        r0_min_htlc_mtokens: neo4j.int(notification.min_htlc_mtokens),
                         r0_updated_at: notification.updated_at
                     }
                 );

@@ -34,10 +34,17 @@ async function getNodesList(input) {
                 node.alias = record.get('alias');
             }
             if (record.get('capacity') != null) {
-                node.capacity = record.get('capacity');
+                const capacity = neo4j.int(record.get('capacity'));
+                if (neo4j.integer.inSafeRange(capacity)) {
+                    node.capacity = capacity.toNumber();
+                }
+                else {
+                    node.capacity = capacity.toString();
+                }
             }
             if (record.get('channel_count') != null) {
-                node.channel_count = record.get('channel_count');
+                const channel_count = neo4j.int(record.get('channel_count'));
+                node.channel_count = channel_count.toNumber();
             }
             if (record.get('public_key') != null) {
                 node.public_key = record.get('public_key');
@@ -79,7 +86,7 @@ function prepareGetNodesQuery(input) {
         nodesQueryArgs.limit = neo4j.int(input.limit);
     }
     else {
-        nodesQueryArgs.limit = neo4j.int(100);
+        nodesQueryArgs.limit = neo4j.int(Number.MAX_SAFE_INTEGER);
     }
 
     const query = {countQuery, countQueryArgs, nodesQuery, nodesQueryArgs, isTotalQueryRequired};
@@ -174,10 +181,17 @@ async function getChannelsByNodes(input) {
                     node.alias = record.get('n0').properties.alias;
                 }
                 if (record.get('n0').properties.capacity != null) {
-                    node.capacity = record.get('n0').properties.capacity;
+                    const capacity = neo4j.int(record.get('n0').properties.capacity);
+                    if (neo4j.integer.inSafeRange(capacity)) {
+                        node.capacity = capacity.toNumber();
+                    }
+                    else {
+                        node.capacity = capacity.toString();
+                    }
                 }
                 if (record.get('n0').properties.channel_count != null) {
-                    node.channel_count = record.get('n0').properties.channel_count;
+                    const channel_count = neo4j.int(record.get('n0').properties.channel_count);
+                    node.channel_count = channel_count.toNumber();
                 }
                 if (record.get('n0_updated_at') != null) {
                     node.updated_at = record.get('n0_updated_at');
@@ -199,10 +213,17 @@ async function getChannelsByNodes(input) {
                     node.alias = record.get('n1').properties.alias;
                 }
                 if (record.get('n1').properties.capacity != null) {
-                    node.capacity = record.get('n1').properties.capacity;
+                    const capacity = neo4j.int(record.get('n1').properties.capacity);
+                    if (neo4j.integer.inSafeRange(capacity)) {
+                        node.capacity = capacity.toNumber();
+                    }
+                    else {
+                        node.capacity = capacity.toString();
+                    }
                 }
                 if (record.get('n1').properties.channel_count != null) {
-                    node.channel_count = record.get('n1').properties.channel_count;
+                    const channel_count = neo4j.int(record.get('n1').properties.channel_count);
+                    node.channel_count = channel_count.toNumber();
                 }
                 if (record.get('n1_updated_at') != null) {
                     node.updated_at = record.get('n1_updated_at');
@@ -221,7 +242,13 @@ async function getChannelsByNodes(input) {
             channel.n0_public_key = n0_public_key;
             channel.n1_public_key = n1_public_key;
             if (record.get('c').properties.capacity != null) {
-                channel.capacity = record.get('c').properties.capacity;  
+                const capacity = neo4j.int(record.get('c').properties.capacity);
+                if (neo4j.integer.inSafeRange(capacity)) {
+                    channel.capacity = capacity.toNumber();
+                }
+                else {
+                    channel.capacity = capacity.toString();
+                }
             }
             if (record.get('c').properties.channel_point != null) {
                 channel.channel_point = record.get('c').properties.channel_point;  
@@ -230,44 +257,54 @@ async function getChannelsByNodes(input) {
                 channel.updated_at = record.get('c_updated_at');
             }
             if (record.get('r0').properties.base_fee_mtokens != null) {
-                channel.n0_base_fee_mtokens = record.get('r0').properties.base_fee_mtokens;  
+                const base_fee_mtokens = neo4j.int(record.get('r0').properties.base_fee_mtokens);
+                channel.n0_base_fee_mtokens = base_fee_mtokens.toString();
             }
             if (record.get('r0').properties.cltv_delta != null) {
-                channel.n0_cltv_delta = record.get('r0').properties.cltv_delta;  
+                const cltv_delta = neo4j.int(record.get('r0').properties.cltv_delta);
+                channel.n0_cltv_delta = cltv_delta.toNumber();
             }
             if (record.get('r0').properties.fee_rate != null) {
-                channel.n0_fee_rate = record.get('r0').properties.fee_rate;  
+                const fee_rate = neo4j.int(record.get('r0').properties.fee_rate);
+                channel.n0_fee_rate = fee_rate.toNumber();
             }
             if (record.get('r0').properties.is_disabled != null) {
                 channel.n0_is_disabled = record.get('r0').properties.is_disabled;  
             }
             if (record.get('r0').properties.max_htlc_mtokens != null) {
-                channel.n0_max_htlc_mtokens = record.get('r0').properties.max_htlc_mtokens;  
+                const max_htlc_mtokens = neo4j.int(record.get('r0').properties.max_htlc_mtokens);
+                channel.n0_max_htlc_mtokens = max_htlc_mtokens.toString();
             }
             if (record.get('r0').properties.min_htlc_mtokens != null) {
-                channel.n0_min_htlc_mtokens = record.get('r0').properties.min_htlc_mtokens;  
+                const min_htlc_mtokens = neo4j.int(record.get('r0').properties.min_htlc_mtokens);
+                channel.n0_min_htlc_mtokens = min_htlc_mtokens.toString();
             }
             if (record.get('r0_updated_at') != null) {
                 channel.n0_updated_at = record.get('r0_updated_at');  
             }
 
             if (record.get('r1').properties.base_fee_mtokens != null) {
-                channel.n1_base_fee_mtokens = record.get('r1').properties.base_fee_mtokens;  
+                const base_fee_mtokens = neo4j.int(record.get('r1').properties.base_fee_mtokens);
+                channel.n1_base_fee_mtokens = base_fee_mtokens.toString();
             }
             if (record.get('r1').properties.cltv_delta != null) {
-                channel.n1_cltv_delta = record.get('r1').properties.cltv_delta;  
+                const cltv_delta = neo4j.int(record.get('r1').properties.cltv_delta);
+                channel.n1_cltv_delta = cltv_delta.toNumber();  
             }
             if (record.get('r1').properties.fee_rate != null) {
-                channel.n1_fee_rate = record.get('r1').properties.fee_rate;  
+                const fee_rate = neo4j.int(record.get('r1').properties.fee_rate);
+                channel.n1_fee_rate = fee_rate.toNumber();
             }
             if (record.get('r1').properties.is_disabled != null) {
                 channel.n1_is_disabled = record.get('r1').properties.is_disabled;  
             }
             if (record.get('r1').properties.max_htlc_mtokens != null) {
-                channel.n1_max_htlc_mtokens = record.get('r1').properties.max_htlc_mtokens;  
+                const max_htlc_mtokens = neo4j.int(record.get('r1').properties.max_htlc_mtokens);
+                channel.n1_max_htlc_mtokens = max_htlc_mtokens.toString();
             }
             if (record.get('r1').properties.min_htlc_mtokens != null) {
-                channel.n1_min_htlc_mtokens = record.get('r1').properties.min_htlc_mtokens;  
+                const min_htlc_mtokens = neo4j.int(record.get('r1').properties.min_htlc_mtokens);
+                channel.n1_min_htlc_mtokens = min_htlc_mtokens.toString();
             }
             if (record.get('r1_updated_at') != null) {
                 channel.n1_updated_at = record.get('r1_updated_at');  
