@@ -5,5 +5,6 @@
     "lnd": {
         "uri": "127.0.0.1:10009"
     },
-    "lh_max_retry": 3
+    "lh_max_retry": 3,
+    "queriesPerTransaction": 1000
 }

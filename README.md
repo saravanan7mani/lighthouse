@@ -45,7 +45,7 @@ process.env.LND_MACAROON - base64
 ### 1. Get nodes by total capacity size.
 
 #### Request:
-GET /nodes
+GET /graph/nodes
 
 ##### Query params:
 
@@ -80,7 +80,7 @@ limit - no. of nodes to return
 ### 2. Get nodes, their peer nodes and channels by public keys
 
 #### Request:
-POST /nodes
+POST /graph/nodes
 
 ##### body json:
 
