@@ -44,77 +44,105 @@ async function loadGraphToDB() {
 
 async function populateNodes(nodes, validNodes) {
     const driver = getDB();
-    const session = driver.session();
-    try {
-        await session.writeTransaction(async tx => {
-            const txPromises = [];
-            for (let i = 0; i < nodes.length; i++) {
-                const node = nodes[i];
-                validNodes.add(node.public_key);
 
-                txPromises.push(tx.run(
-                    DB_QUERIES.POPULATE_NODES,
-                    {
-                        public_key: node.public_key,
-                        alias: node.alias,
-                        color: node.color,
-                        sockets: node.sockets,
-                        updated_at: node.updated_at
-                    }
-                ));
-            }
-            return await Promise.all(txPromises);
-        });
-    } finally {
-        await session.close();
-    } 
+    const nodeCount = nodes.length;
+    let startIndex = 0;
+
+    while (startIndex < nodeCount) {
+        const start = startIndex;
+        let end = startIndex + config.queriesPerTransaction-1;
+        if (end >= nodeCount) {
+            end = nodeCount-1;
+        }
+
+        const session = driver.session();
+        try {
+            await session.writeTransaction(async tx => {
+                const txPromises = [];
+                for (let i = start; i <= end; i++) {
+                    const node = nodes[i];
+                    validNodes.add(node.public_key);
+
+                    txPromises.push(tx.run(
+                        DB_QUERIES.POPULATE_NODES,
+                        {
+                            public_key: node.public_key,
+                            alias: node.alias,
+                            color: node.color,
+                            sockets: node.sockets,
+                            updated_at: node.updated_at
+                        }
+                    ));
+                }
+                return await Promise.all(txPromises);
+            });
+        } finally {
+            await session.close();
+        }
+
+        startIndex = end+1;
+    }
 }
 
 async function populateChannels(channels, validNodes, validChannels) {
     const driver = getDB();
-    const session = driver.session();
-    try {
-        await session.writeTransaction(async tx => {
-            const txPromises = [];
-            for (let i = 0; i < channels.length; i++) {
-                const channel = channels[i];
-                validChannels.add(channel.id);
-                validNodes.add(channel.policies[0].public_key);
-                validNodes.add(channel.policies[1].public_key);
 
-                txPromises.push(tx.run(
-                    DB_QUERIES.POPULATE_CHANNELS,
-                    {
-                        n0_public_key: channel.policies[0].public_key,
-                        n1_public_key: channel.policies[1].public_key,
+    const channelCount = channels.length;
+    let startIndex = 0;
 
-                        c_channel_id: channel.id,
-                        c_channel_point: channel.transaction_id + ':' + channel.transaction_vout,
-                        c_capacity: channel.capacity,
-                        c_updated_at: ((channel.updated_at) ? channel.updated_at : null),
+    while (startIndex < channelCount) {
+        const start = startIndex;
+        let end = startIndex + config.queriesPerTransaction-1;
+        if (end >= channelCount) {
+            end = channelCount-1;
+        }
 
-                        r0_base_fee_mtokens: channel.policies[0].base_fee_mtokens || null,
-                        r0_cltv_delta: channel.policies[0].cltv_delta || null,
-                        r0_fee_rate: channel.policies[0].fee_rate || null,
-                        r0_is_disabled: channel.policies[0].is_disabled || null,
-                        r0_max_htlc_mtokens: channel.policies[0].max_htlc_mtokens || null,
-                        r0_min_htlc_mtokens: channel.policies[0].min_htlc_mtokens || null,
-                        r0_updated_at: ((channel.policies[0].updated_at) ? channel.policies[0].updated_at : null),
-                        
-                        r1_base_fee_mtokens: channel.policies[1].base_fee_mtokens || null,
-                        r1_cltv_delta: channel.policies[1].cltv_delta || null,
-                        r1_fee_rate: channel.policies[1].fee_rate || null,
-                        r1_is_disabled: channel.policies[1].is_disabled || null,
-                        r1_max_htlc_mtokens: channel.policies[1].max_htlc_mtokens || null,
-                        r1_min_htlc_mtokens: channel.policies[1].min_htlc_mtokens || null,
-                        r1_updated_at: ((channel.policies[1].updated_at) ? channel.policies[1].updated_at : null)
-                    }
-                ));
-            }
-            return Promise.all(txPromises);
-        });
-    } finally {
-        await session.close();
+        const session = driver.session();
+        try {
+            await session.writeTransaction(async tx => {
+                const txPromises = [];
+                for (let i = start; i <= end; i++) {
+                    const channel = channels[i];
+                    validChannels.add(channel.id);
+                    validNodes.add(channel.policies[0].public_key);
+                    validNodes.add(channel.policies[1].public_key);
+
+                    txPromises.push(tx.run(
+                        DB_QUERIES.POPULATE_CHANNELS,
+                        {
+                            n0_public_key: channel.policies[0].public_key,
+                            n1_public_key: channel.policies[1].public_key,
+
+                            c_channel_id: channel.id,
+                            c_channel_point: channel.transaction_id + ':' + channel.transaction_vout,
+                            c_capacity: channel.capacity,
+                            c_updated_at: ((channel.updated_at) ? channel.updated_at : null),
+
+                            r0_base_fee_mtokens: channel.policies[0].base_fee_mtokens || null,
+                            r0_cltv_delta: channel.policies[0].cltv_delta || null,
+                            r0_fee_rate: channel.policies[0].fee_rate || null,
+                            r0_is_disabled: channel.policies[0].is_disabled || null,
+                            r0_max_htlc_mtokens: channel.policies[0].max_htlc_mtokens || null,
+                            r0_min_htlc_mtokens: channel.policies[0].min_htlc_mtokens || null,
+                            r0_updated_at: ((channel.policies[0].updated_at) ? channel.policies[0].updated_at : null),
+                            
+                            r1_base_fee_mtokens: channel.policies[1].base_fee_mtokens || null,
+                            r1_cltv_delta: channel.policies[1].cltv_delta || null,
+                            r1_fee_rate: channel.policies[1].fee_rate || null,
+                            r1_is_disabled: channel.policies[1].is_disabled || null,
+                            r1_max_htlc_mtokens: channel.policies[1].max_htlc_mtokens || null,
+                            r1_min_htlc_mtokens: channel.policies[1].min_htlc_mtokens || null,
+                            r1_updated_at: ((channel.policies[1].updated_at) ? channel.policies[1].updated_at : null)
+                        }
+                    ));
+                }
+                return Promise.all(txPromises);
+            });
+        } finally {
+            await session.close();
+        }
+
+        startIndex = end+1;
     }
 }
 
