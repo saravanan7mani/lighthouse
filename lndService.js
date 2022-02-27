@@ -1,6 +1,7 @@
 const {EventEmitter} = require('events');
 const {getLND} = require('./lnd');
 const {subscribeToGraph} = require('ln-service');
+const logger = require('log4js').getLogger("lndService");
 
 class LndGraphToDBHandler extends EventEmitter {
     constructor() {
@@ -15,10 +16,11 @@ class LndGraphToDBHandler extends EventEmitter {
 
 /**
 Assumptions based on ln-service & LND GRPC Docs and BOLT Spec:
-1. There won't be any missing of notification.
-2. But in case of any network failure, there can be missing of notifications. - NEED TO BE FIXED WITH PRIMARY/SECONDARY.
+1. There won't be any missing of notification by LND.
+2. But in case of any network failure, there can be missing of notifications. - Can be addressed by distributed message brokers and fleet of LNDs.
 */
 function subscribeToLNDGraph() {
+    logger.info('subscribing to LND graph notifications.')
     const lnd = getLND();
     const lndGraphSubscription = subscribeToGraph({lnd});
     const lndGraphToDBHandler = new LndGraphToDBHandler();
