@@ -1,15 +1,15 @@
 # lighthouse
 Lightnig Network Explorer
 
-## Built with:
+## Built with
 
-NodeJS
+NodeJS v16.14.0
 
-Express
+Express v4.16.1
 
-Neo4J
+Neo4J v4.4.3
 
-LND
+LND v0.14.2-beta
 
 ## Neo4j schema
 CREATE CONSTRAINT node_public_key_unique IF NOT EXISTS FOR (n:Node) REQUIRE n.public_key IS UNIQUE
@@ -25,7 +25,7 @@ CREATE INDEX FOR (n:Node) ON (n.channel_count)
 CREATE INDEX FOR (c:Channel) ON (c.capacity)
 
 
-## Environment Variables:
+## Environment variables
 process.env.PORT
 
 process.env.NEO4J_URI
@@ -41,7 +41,7 @@ process.env.LND_CERT - base64
 process.env.LND_MACAROON - base64
 
 
-## v0.1 API:
+## API
 ### 1. Get nodes by total capacity size.
 
 #### Request:
@@ -139,10 +139,3 @@ POST /graph/nodes
     "channel_count": 1
 }
 ```
-
-
-
-
-
-
-
