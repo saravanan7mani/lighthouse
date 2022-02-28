@@ -1,9 +1,9 @@
 # lighthouse
 A Lightnig Network Explorer backend.
 
-For demo, visit https://lnlighthouse.online
+For demo, visit https://lnlighthouse.online - Under dev
 
-For frontend, visit https://github.com/saravanan7mani/lighthouse-web
+For frontend, visit https://github.com/saravanan7mani/lighthouse-web - Under dev
 
 ## Built with
 
