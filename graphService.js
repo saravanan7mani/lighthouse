@@ -17,7 +17,7 @@ async function getNodesList(input) {
                 txPromises.push(tx.run(query.countQuery, query.countQueryArgs));
             }
             txPromises.push(tx.run(query.nodesQuery, query.nodesQueryArgs));
-            return Promise.all(txPromises);    
+            return Promise.all(txPromises);
         });
 
         const response = {};

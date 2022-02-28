@@ -22,16 +22,17 @@ async function loadGraphToDB() {
         
         let validNodes = new Set();
         await populateNodes(nodes, validNodes);
-        nodes = null;
+        nodes = null; // freeing heavy objects for GC.
         let validChannels = new Set();
         await populateChannels(channels, validNodes, validChannels);
         channels = null;
-        await deleteStaleChannels(validChannels); // To remove stale channels & nodes from DB that are missed by above update query.
+        await deleteStaleChannels(validChannels);
         validChannels = null;
         await deleteStaleNodes(validNodes);
         validNodes = null;
-        await updateNodeTotalCapacity();
+        await updateNodeInfo();
 
+        logger.info('processing of LND graph notifications to be started.');
         lndGraphToDBHandler.on('move', processLndGraphNotifications);
         lndGraphToDBHandler.moveToDB();
 
@@ -49,7 +50,7 @@ async function populateNodes(nodes, validNodes) {
     const nodeCount = nodes.length;
     let startIndex = 0;
 
-    while (startIndex < nodeCount) {
+    while (startIndex < nodeCount) { // breaking nodes to 1k queries per transaction to reduce reduce Neo4j memory overload.  
         const start = startIndex;
         let end = startIndex + config.queriesPerTransaction-1;
         if (end >= nodeCount) {
@@ -147,7 +148,7 @@ async function populateChannels(channels, validNodes, validChannels) {
     }
 }
 
-async function deleteStaleChannels(validChannels) {
+async function deleteStaleChannels(validChannels) { // deletion of stale channels if any left by previous server runs
     const driver = getDB();
     const session = driver.session();
     try {
@@ -207,13 +208,13 @@ async function deleteStaleNodes(validNodes) {
     }
 }
 
-async function updateNodeTotalCapacity(validNodes) {
+async function updateNodeInfo() { // update of node total capacity and channel counts.
     const driver = getDB();
     const session = driver.session();
     try {
         await session.writeTransaction(async tx => {
             return tx.run(
-                DB_QUERIES.UPDATE_NODES_CAPACITY_INFO
+                DB_QUERIES.UPDATE_NODES_INFO
             )
         });
     } finally {
@@ -221,7 +222,7 @@ async function updateNodeTotalCapacity(validNodes) {
     }
 }
 
-async function processNodeTotalCapacity(key) {
+async function processNodeInfo(key) {
     let nodeDetail;
     try {
         const lnd = getLND();
@@ -237,7 +238,7 @@ async function processNodeTotalCapacity(key) {
     try {
         await session.writeTransaction(async tx => {
             return tx.run(
-                DB_QUERIES.UPDATE_NODE_CAPACITY_INFO,
+                DB_QUERIES.UPDATE_NODE_INFO,
                 {
                     public_key : key,
                     capacity : neo4j.int(nodeDetail.capacity),
@@ -254,7 +255,7 @@ async function processLndGraphNotifications() {
     const notifications = [...this.notifications];
     this.notifications = [];
     for (let i = 0; i < notifications.length; i++) {
-        await processLndGraphNotification(notifications[i], this);
+        await processLndGraphNotification(notifications[i], this); // awaiting to reduce load on DB. Improvement in queries might help.
     }
 }
 
@@ -284,7 +285,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                     DB_QUERIES.UPDATE_CHANNEL_CLOSE_NOTIFICATION,
                     {
                         c_channel_id: notification.id,
-                        c_close_height: notification.close_height,
+                        c_close_height: neo4j.int(notification.close_height),
                         c_channel_point: (notification.transaction_id != null && notification.transaction_vout != null) ? (notification.transaction_id + ':' + notification.transaction_vout) : null,
                         c_capacity: notification.capacity != null ? neo4j.int(notification.capacity) : null,
                         c_updated_at: notification.updated_at
@@ -292,8 +293,8 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                 );
                 if (public_keys && public_keys.records 
                     && typeof public_keys.records.length !== 'undefined' && public_keys.records.length === 2) {
-                    await Promise.all([processNodeTotalCapacity(lnd, public_keys.records[0].get('public_keys'), tx),
-                    processNodeTotalCapacity(lnd, public_keys.records[1].get('public_keys'), tx)]);
+                    await Promise.all([processNodeInfo(public_keys.records[0].get('public_keys')),
+                    processNodeInfo(public_keys.records[1].get('public_keys'))]);
                 }
             } else {
                 const nodeDetails = await Promise.all([getNode({lnd, public_key: notification.public_keys[0]}), 
@@ -339,7 +340,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
         else {
             logger.error('Failed to process lightning graph notification: ' + JSON.stringify(notification) + ', retry attempt: ' + notification.lh_max_retry + ', error: ' + e);
             notification.lh_max_retry = notification.lh_max_retry ? notification.lh_max_retry + 1 : 1;
-            lndGraphToDBHandler.notifications.push(notification);
+            lndGraphToDBHandler.notifications.push(notification); // pushing failed notifications to be retried along with next notification. 
         }
     }
 }
