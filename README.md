@@ -1,5 +1,7 @@
 # lighthouse
-Lightnig Network Explorer
+A Lightnig Network Explorer backend.
+
+For frontend, visit https://github.com/saravanan7mani/lighthouse-web
 
 ## Built with
 
