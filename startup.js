@@ -285,7 +285,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                     DB_QUERIES.UPDATE_CHANNEL_CLOSE_NOTIFICATION,
                     {
                         c_channel_id: notification.id,
-                        c_close_height: notification.close_height,
+                        c_close_height: neo4j.int(notification.close_height),
                         c_channel_point: (notification.transaction_id != null && notification.transaction_vout != null) ? (notification.transaction_id + ':' + notification.transaction_vout) : null,
                         c_capacity: notification.capacity != null ? neo4j.int(notification.capacity) : null,
                         c_updated_at: notification.updated_at
@@ -293,8 +293,8 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                 );
                 if (public_keys && public_keys.records 
                     && typeof public_keys.records.length !== 'undefined' && public_keys.records.length === 2) {
-                    await Promise.all([processNodeInfo(lnd, public_keys.records[0].get('public_keys'), tx),
-                    processNodeInfo(lnd, public_keys.records[1].get('public_keys'), tx)]);
+                    await Promise.all([processNodeInfo(public_keys.records[0].get('public_keys')),
+                    processNodeInfo(public_keys.records[1].get('public_keys'))]);
                 }
             } else {
                 const nodeDetails = await Promise.all([getNode({lnd, public_key: notification.public_keys[0]}), 
