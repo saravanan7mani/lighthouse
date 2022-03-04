@@ -30,20 +30,34 @@ router.get('/nodes', async function(req, res) {
 
 router.post('/nodes', async function(req, res) {
   const public_keys = req.body.public_keys;
-  
-  if (public_keys && public_keys.length) {
-    if (public_keys.length > 1000) {
-      res.status(400).json('More than 1000 public_keys are not allowed.');
-    }
-    else {
-      res.json(await getChannelsByNodes(public_keys));
-    }
+  const errMsg = verifyGetChannelsRequest(public_keys);
+  if (errMsg.length) {
+    logger.warn('Invalid input for get channels & peers request: ' + errMsg);
+    res.status(400).json(errMsg);
   }
   else {
-    logger.warn('Empty public_keys by client for get nodes.');
-    res.status(400).json('Empty public_keys');
+    res.json(await getChannelsByNodes(public_keys));
   }
 });
+
+function verifyGetChannelsRequest(public_keys) {
+  let errMsg = '';
+  if (public_keys == null || !public_keys.length) {
+    errMsg = 'Empty public_keys for get channels & peers.';
+  }
+  else if (public_keys.length > 10) {
+    errMsg = 'More than 10 public_keys are not allowed.';
+  }
+  else {
+    const validLength = public_keys.every((public_key) => {
+      return public_key != null && public_key.length <= 100;
+    });
+    if (!validLength) {
+      errMsg = 'Every public_key length should be less than or equal to 100 characters.'
+    }
+  }
+  return errMsg;
+}
 
 function verifyGetNodesRequest(input) {
   let errMsg = '';

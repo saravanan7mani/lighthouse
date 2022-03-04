@@ -9,6 +9,19 @@ const graphRouter = require('./routes/graph');
 
 const app = express();
 
+const whitelistOrigins = [
+    'https://lnlighthouse.online',
+    'http://127.0.0.1:8080'
+];
+
+app.use(function(req, res, next) {
+    const origin = req.headers.origin;
+    if (whitelistOrigins.includes(origin)) {
+        res.header("Access-Control-Allow-Origin", origin); // update to match the domain you will make the request from
+    }
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
 app.use(log4js.connectLogger(log4js.getLogger("http"), { level: 'auto' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

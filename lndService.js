@@ -17,7 +17,7 @@ class LndGraphToDBHandler extends EventEmitter {
 /**
 Assumptions based on ln-service & LND GRPC Docs and BOLT Spec:
 1. There won't be any missing of notification by LND.
-2. But in case of any network failure, there can be missing of notifications. - Can be addressed by distributed message brokers and fleet of LNDs.
+2. But in case of any network failure, there can be missing of notifications. - Can be addressed with caching of notifications keys/ids & updated_at, distributed message brokers and fleet of LNDs.
 */
 function subscribeToLNDGraph() {
     logger.info('subscribing to LND graph notifications.')
