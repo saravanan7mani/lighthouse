@@ -1,10 +1,9 @@
 # lighthouse
 A Lightnig Network Explorer backend.
 
-For demo, visit https://lnlighthouse.online - Under dev
+For demo, visit https://lnlighthouse.online
 
-For frontend, visit https://github.com/saravanan7mani/lighthouse-web - Under dev
-
+For frontend, visit https://github.com/saravanan7mani/lighthouse-web
 ## Built with
 
 NodeJS v16.14.0
