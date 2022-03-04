@@ -1,5 +1,9 @@
 # lighthouse
-Lightnig Network Explorer
+A Lightnig Network Explorer backend.
+
+For demo, visit https://lnlighthouse.online - Under dev
+
+For frontend, visit https://github.com/saravanan7mani/lighthouse-web - Under dev
 
 ## Built with
 
@@ -11,7 +15,11 @@ Neo4J v4.4.3
 
 LND v0.14.2-beta
 
-## Neo4j schema
+## Neo4j
+### Enable APOC library
+https://neo4j.com/labs/apoc/4.1/installation/
+
+### Schema
 CREATE CONSTRAINT node_public_key_unique IF NOT EXISTS FOR (n:Node) REQUIRE n.public_key IS UNIQUE
 
 CREATE CONSTRAINT channel_channel_id_unique IF NOT EXISTS FOR (c:Channel) REQUIRE c.channel_id IS UNIQUE
