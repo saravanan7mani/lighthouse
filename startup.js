@@ -268,7 +268,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
             if (notification.public_key) {
                 const nodeDetail = await getNode({lnd, public_key: notification.public_key});
                 await tx.run(
-                    DB_QUERIES.UPDATE_NODE_NOTIFICATION,
+                    DB_QUERIES.UPDATE_NODE_NOTIFICATION, // updated_at is checked before updating the node.
                     {
                         public_key: notification.public_key,
                         alias: notification.alias,
@@ -282,7 +282,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
             }
             else if (notification.close_height) {
                 const public_keys = await tx.run(
-                    DB_QUERIES.UPDATE_CHANNEL_CLOSE_NOTIFICATION,
+                    DB_QUERIES.UPDATE_CHANNEL_CLOSE_NOTIFICATION, // removing relation between nodes and the channel and marking the channel as closed.
                     {
                         c_channel_id: notification.id,
                         c_close_height: neo4j.int(notification.close_height),
@@ -300,7 +300,7 @@ async function processLndGraphNotification(notification, lndGraphToDBHandler) {
                 const nodeDetails = await Promise.all([getNode({lnd, public_key: notification.public_keys[0]}), 
                                                     getNode({lnd, public_key: notification.public_keys[1]})]);
                 await tx.run(
-                    DB_QUERIES.UPDATE_CHANNEL_NOTIFICATION,
+                    DB_QUERIES.UPDATE_CHANNEL_NOTIFICATION, // closed and updated_at are checked before updating the channel
                     {
                         n0_public_key: notification.public_keys[0],
                         n1_public_key: notification.public_keys[1],
