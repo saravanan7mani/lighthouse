@@ -1,7 +1,7 @@
 # lighthouse
 A Lightnig Network Explorer backend.
 
-For demo, visit https://lnlighthouse.online (Tested only in Chrome and Desktop is preferred to view)
+For demo, visit https://lnlighthouse.online (Tested only in Chrome & Firefox and Desktop is preferred to view)
 
 For frontend, visit https://github.com/saravanan7mani/lighthouse-web
 ## Built with
