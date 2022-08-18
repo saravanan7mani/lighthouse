@@ -2,9 +2,8 @@
 A Lightnig Network Explorer backend.
 
 <img src="screenshot.jpg" />
-<img src="screenshot1.jpg" />
-<img src="screenshot2.jpg" />
-<img src="screenshot3.jpg" />
+<img src="screenshot01.jpg" />
+<img src="screenshot02.jpg" />
 
 For demo, visit https://lnlighthouse.online (Tested only in Chrome & Firefox and Desktop is preferred to view)
 
