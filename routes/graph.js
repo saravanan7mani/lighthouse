@@ -42,7 +42,7 @@ router.post('/nodes', async function(req, res) {
 
 function verifyGetChannelsRequest(public_keys) {
   let errMsg = '';
-  if (public_keys == null || !public_keys.length) {
+  if (!Array.isArray(public_keys) || public_keys.length === 0) {
     errMsg = 'Empty public_keys for get channels & peers.';
   }
   else if (public_keys.length > 10) {
